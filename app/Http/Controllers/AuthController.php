@@ -167,14 +167,14 @@ public function register_user(Request $request)
                 "success" => true,
                 "data" => $user,
                 "message" => "Info de l’utilisateur affiché avec succès"
-            ], 205);
+            ], 200);
         }
         catch(QueryException $e){
             return response()->json([
                 "success" => false,
                 "message" => "Erreur lors de l’affichage des informations de l’utilisateur",
                 "erreur" => $e->getMessage()
-            ], 505);
+            ], 500);
         }
     }
 
@@ -244,14 +244,14 @@ public function register_user(Request $request)
                 "success" => true,
                 "data" => $admin,
                 "message" => "Info de l’administrateur affiché avec succès"
-            ], 205);
+            ], 200);
         }
         catch(QueryException $e){
             return response()->json([
                 "success" => false,
                 "message" => "Erreur lors de l’affichage des informations de l’administrateur",
                 "erreur" => $e->getMessage()
-            ], 505);
+            ], 500);
         }
     }
 }
