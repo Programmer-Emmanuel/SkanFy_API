@@ -12,13 +12,13 @@ Route::post('/register/user', [AuthController::class, "register_user"]);
 Route::post('/login/user', [AuthController::class, "login_user"]);
 Route::post('/verify/code/otp', [AuthController::class, "verify_otp"]);
 
+// Scan d'un QR code (nécessite un utilisateur connecté)
+Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
+Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
+
 Route::middleware('auth:user')->group(function(){
     //Informations de l’utilisateur
     Route::get('/info/user', [AuthController::class, "info_user"]);
-    
-    // Scan d'un QR code (nécessite un utilisateur connecté)
-    Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
-    Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
 
     //Formatter code Qr
     Route::get('/qr/user/{qrId}/formatte', [QrController::class, 'formater_qr_user']);
@@ -52,8 +52,6 @@ Route::middleware('auth:admin')->group(function(){
     Route::get('/liste/qr/occasion', [QrController::class, 'liste_qr_par_occasion']);
 });
 
-    //Obtenir les infos d’un code qr
-    Route::match(['get', 'post'], '/qr/{id?}', [QrController::class, 'getQr']);
 
 
     //test sms

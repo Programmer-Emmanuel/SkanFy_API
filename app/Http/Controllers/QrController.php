@@ -98,92 +98,104 @@ class QrController extends Controller
      * ✅ Scan d’un QR Code par son ID
      */
     public function scanner_qr(Request $request, $qrId)
-    {
-        try {
-            $userScanner = Auth::user();
-            if (!$userScanner) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Utilisateur non connecté"
-                ], 401);
-            }
+{
+    try {
+        // On récupère l'utilisateur s'il est connecté (facultatif)
+        $userScanner = Auth::user();
 
-            $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
-            if (!$qr) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "QR Code non trouvé"
-                ], 404);
-            }
+        $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
+        if (!$qr) {
+            return response()->json([
+                "success" => false,
+                "message" => "QR Code non trouvé"
+            ], 404);
+        }
 
-            // Si le QR n’est pas actif → premier scan → il devient actif et appartient à l’utilisateur
-            if (!$qr->is_active) {
+        // Si le QR n'est pas encore actif (premier scan)
+        if (!$qr->is_active) {
+
+            // Si un utilisateur est connecté → il devient propriétaire
+            if ($userScanner) {
                 return $this->activateQrAndAssociateUser($qr, $userScanner);
             }
 
-            // Si le QR est déjà actif → on affiche les infos
+            // Sinon, on active simplement sans l’associer à un utilisateur
+            $qr->update(['is_active' => true]);
+
             return response()->json([
                 "success" => true,
-                "message" => "QR Code déjà activé",
+                "message" => "QR Code activé (sans utilisateur connecté)",
                 "data" => $this->formatCommeInscription($qr)
             ], 200);
+        }
 
-        } catch (\Exception $e) {
+        // Si déjà actif → on affiche les infos existantes
+        return response()->json([
+            "success" => true,
+            "message" => "QR Code déjà activé",
+            "data" => $this->formatCommeInscription($qr)
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors du scan du QR",
+            "erreur" => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function scanner_via_lien(Request $request)
+{
+    try {
+        $request->validate([
+            'link_id' => 'required|string'
+        ]);
+
+        $userScanner = Auth::user();
+
+        $qr = Qr::with(['user', 'occasion', 'objet'])
+            ->where('link_id', $request->link_id)
+            ->first();
+
+        if (!$qr) {
             return response()->json([
                 "success" => false,
-                "message" => "Erreur lors du scan du QR",
-                "erreur" => $e->getMessage()
-            ], 500);
+                "message" => "QR Code non trouvé"
+            ], 404);
         }
-    }
 
-    /**
-     * ✅ Scan via link_id (URL)
-     */
-    public function scanner_via_lien(Request $request)
-    {
-        try {
-            $request->validate([
-                'link_id' => 'required|string'
-            ]);
+        if (!$qr->is_active) {
 
-            $userScanner = Auth::user();
-            if (!$userScanner) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Utilisateur non connecté"
-                ], 401);
-            }
-
-            $qr = Qr::with(['user', 'occasion', 'objet'])
-                ->where('link_id', $request->link_id)
-                ->first();
-
-            if (!$qr) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "QR Code non trouvé"
-                ], 404);
-            }
-
-            if (!$qr->is_active) {
+            if ($userScanner) {
                 return $this->activateQrAndAssociateUser($qr, $userScanner);
             }
 
+            $qr->update(['is_active' => true]);
+
             return response()->json([
                 "success" => true,
-                "message" => "QR Code déjà activé",
+                "message" => "QR Code activé (sans utilisateur connecté)",
                 "data" => $this->formatCommeInscription($qr)
             ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                "success" => false,
-                "message" => "Erreur lors du scan du lien",
-                "erreur" => $e->getMessage()
-            ], 500);
         }
+
+        return response()->json([
+            "success" => true,
+            "message" => "QR Code déjà activé",
+            "data" => $this->formatCommeInscription($qr)
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors du scan du lien",
+            "erreur" => $e->getMessage()
+        ], 500);
     }
+}
+
 
     /**
      * ✅ Active le QR et associe le user scanner
@@ -366,90 +378,45 @@ public function liste_qr()
 }
 
 
-/**
- * ✅ Récupère un seul QR Code avec toutes ses informations formatées
- */
-public function getQr(Request $request, $id = null)
-{
-    try {
-        // 🧩 1. Si un ID est passé dans l’URL
-        if ($id) {
-            $qr = Qr::with(['user', 'objet', 'occasion'])->find($id);
-        }
-        // 🧩 2. Sinon, on vérifie si un link_id est fourni dans le body ou la query
-        elseif ($request->has('link_id')) {
-            $link = $request->link_id;
-            $link_id = basename($link); // au cas où ce soit une URL complète
-
-            $qr = Qr::with(['user', 'objet', 'occasion'])
-                ->where('link_id', $link_id)
-                ->orWhere('link_id', $link)
-                ->first();
-        }
-        else {
-            return response()->json([
-                "success" => false,
-                "message" => "Aucun identifiant (id ou link_id) fourni"
-            ], 400);
-        }
-
-        // 🧩 3. Vérifier si trouvé
-        if (!$qr) {
-            return response()->json([
-                "success" => false,
-                "message" => "QR Code non trouvé"
-            ], 404);
-        }
-
-        // 🧩 4. Retour formaté
-        return response()->json([
-            "success" => true,
-            "message" => "QR Code récupéré avec succès",
-            "data" => $this->formatCommeInscription($qr)
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            "success" => false,
-            "message" => "Erreur lors de la récupération du QR",
-            "erreur" => $e->getMessage()
-        ], 500);
-    }
-}
-
-
 
     /**
      * ✅ Format de sortie cohérent pour le frontend
      */
-    private function formatCommeInscription($qr)
-    {
-        return [
-            "qr" => [
-                "id" => $qr->id,
-                "is_active" => $qr->is_active,
-                "link_id" => $qr->link_id,
-                "image_qr" => $qr->image_qr,
-                "created_at" => $qr->created_at,
-                "updated_at" => $qr->updated_at,
-            ],
-            "user" => $qr->user ? [
-                "id" => $qr->user->id,
-                "nom" => $qr->user->nom,
-                "email_user" => $qr->user->email_user,
-            ] : null,
-            "occasion" => $qr->occasion ? [
-                "id" => $qr->occasion->id,
-                "nom_occasion" => $qr->occasion->nom_occasion,
-            ] : null,
-            "objet" => $qr->objet ? [
-                "id" => $qr->objet->id,
-                "nom_objet" => $qr->objet->nom_objet,
-                "tel" => $qr->objet->tel ?? null,
-                "description" => $qr->objet->description ?? null
-            ] : null,
-        ];
-    }
+private function formatCommeInscription($qr)
+{
+    // ✅ Détermination de la propriété et des infos
+    $owner = $qr->id_user ? 1 : 0;
+    $info = ($qr->objet || $qr->occasion) ? 1 : 0;
+
+    return [
+        "qr" => [
+            "id" => $qr->id,
+            "is_active" => $qr->is_active,
+            "link_id" => $qr->link_id,
+            "image_qr" => $qr->image_qr,
+            "created_at" => $qr->created_at,
+            "updated_at" => $qr->updated_at,
+        ],
+        "owner" => $owner,  // ✅ 1 = appartient à quelqu’un
+        "info" => $info,    // ✅ 1 = contient des données
+        "user" => $qr->user ? [
+            "id" => $qr->user->id,
+            "nom" => $qr->user->nom,
+            "email_user" => $qr->user->email_user,
+        ] : null,
+        "occasion" => $qr->occasion ? [
+            "id" => $qr->occasion->id,
+            "nom_occasion" => $qr->occasion->nom_occasion,
+        ] : null,
+        "objet" => $qr->objet ? [
+            "id" => $qr->objet->id,
+            "nom_objet" => $qr->objet->nom_objet,
+            "tel" => $qr->objet->tel ?? null,
+            "description" => $qr->objet->description ?? null
+        ] : null,
+    ];
+}
+
 
 
     public function liste_qr_par_occasion(Request $request)
