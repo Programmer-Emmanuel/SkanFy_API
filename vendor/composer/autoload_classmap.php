@@ -8,6 +8,7 @@ $baseDir = dirname($vendorDir);
 return array(
     'App\\Http\\Controllers\\AuthController' => $baseDir . '/app/Http/Controllers/AuthController.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
+    'App\\Http\\Controllers\\ObjetController' => $baseDir . '/app/Http/Controllers/ObjetController.php',
     'App\\Http\\Controllers\\QrController' => $baseDir . '/app/Http/Controllers/QrController.php',
     'App\\Http\\Middleware\\CustomVerifyCsrfToken' => $baseDir . '/app/Http/Middleware/CustomVerifyCsrfToken.php',
     'App\\Mail\\SendOtpMail' => $baseDir . '/app/Mail/SendOtpMail.php',

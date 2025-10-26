@@ -15,7 +15,6 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('nom_objet')->nullable();
             $table->string('image_objet')->nullable();
-            $table->string('tel', 10)->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
         });

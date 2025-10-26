@@ -560,6 +560,7 @@ class ComposerStaticInitc514d8f7b9fc5970bdd94287905ef584
     public static $classMap = array (
         'App\\Http\\Controllers\\AuthController' => __DIR__ . '/../..' . '/app/Http/Controllers/AuthController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
+        'App\\Http\\Controllers\\ObjetController' => __DIR__ . '/../..' . '/app/Http/Controllers/ObjetController.php',
         'App\\Http\\Controllers\\QrController' => __DIR__ . '/../..' . '/app/Http/Controllers/QrController.php',
         'App\\Http\\Middleware\\CustomVerifyCsrfToken' => __DIR__ . '/../..' . '/app/Http/Middleware/CustomVerifyCsrfToken.php',
         'App\\Mail\\SendOtpMail' => __DIR__ . '/../..' . '/app/Mail/SendOtpMail.php',

@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Mail\SendOtpMail;
 use App\Models\Admin;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -19,10 +19,13 @@ public function register_user(Request $request)
         $validator = Validator::make($request->all(), [
             'nom' => 'nullable|string',
             'email_user' => 'required|email',
+            'tel_user' => 'nullable|digits:10',
             'password' => 'required|string|min:8'
         ], [
             'email_user.required' => 'L’email est obligatoire.',
             'email_user.email' => 'L’adresse e-mail est invalide.',
+            'tel_user.required' => 'Le numéro de téléphone est obligatoire.',
+            'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 carctères.',
             'password.required' => 'Le mot de passe est obligatoire.',
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
         ]);
@@ -57,6 +60,7 @@ public function register_user(Request $request)
             $user = new User();
             $user->nom = $request->nom;
             $user->email_user = $request->email_user;
+            $user->tel_user = $request->tel_user;
             $user->password = Hash::make($request->password);
             $user->otp = $otp;
             $user->otp_expire_at = Carbon::now()->addMinutes(10);
@@ -121,37 +125,40 @@ public function register_user(Request $request)
         ]);
     }
 
-    // ✅ Connexion avec envoi OTP
     public function login_user(Request $request)
-    {
-        $request->validate([
-            'email_user' => 'required|email',
-            'password' => 'required|string|min:8'
-        ]);
+{
+    $request->validate([
+        'email_user' => 'required|email',
+        'password' => 'required|string|min:8'
+    ]);
 
-        $user = User::where('email_user', $request->email_user)->first();
+    $user = User::where('email_user', $request->email_user)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Identifiants incorrects.'
-            ], 401);
-        }
-
-        // Génère un nouveau OTP
-        $otp = rand(100000, 999999);
-        $user->otp = $otp;
-        $user->otp_expire_at = Carbon::now()->addMinutes(10);
-        $user->save();
-
-        // Envoi de l’OTP par mail
-        Mail::to($request->email_user)->send(new SendOtpMail($otp));
-
+    if (!$user || !Hash::check($request->password, $user->password)) {
         return response()->json([
-            'success' => true,
-            'message' => 'Code OTP envoyé à votre adresse e-mail.',
-        ]);
+            'success' => false,
+            'message' => 'Identifiants incorrects.'
+        ], 401);
     }
+
+    // 🔹 Vérifie que le compte est vérifié
+    if (!$user->is_verify) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Votre compte n’est pas encore vérifié. Veuillez d’abord vérifier votre compte.'
+        ], 403);
+    }
+
+    // ✅ Création du token d’accès
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Connexion réussie',
+        'user' => $user,
+        'token' => $token
+    ], 200);
+}
 
 
     public function info_user(Request $request){

@@ -43,12 +43,10 @@ class ObjetController extends Controller
     {
         $validator = Validator::make($request->all(), [
             "nom_objet" => "nullable|string",
-            "tel" => "nullable|digits:10",
             "description" => "nullable|string|min:20",
             "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
         ], [
             "nom_objet.string" => "Le nom de l’objet doit être une chaîne de caractères.",
-            "tel.digits" => "Le numéro de téléphone doit contenir exactement 10 chiffres.",
             "description.string" => "La description doit être une chaîne de caractères.",
             "description.min" => "La description doit avoir au minimum 20 caractères.",
             "image_objet.image" => "Le fichier doit être une image.",
@@ -103,7 +101,6 @@ class ObjetController extends Controller
             // ✅ Création de l’objet
             $objet = new Objet();
             $objet->nom_objet = $request->nom_objet;
-            $objet->tel = $request->tel;
             $objet->description = $request->description;
             $objet->image_objet = $imageUrl;
             $objet->save();
@@ -134,7 +131,6 @@ class ObjetController extends Controller
     {
         $validator = Validator::make($request->all(), [
             "nom_objet" => "nullable|string",
-            "tel" => "nullable|digits:10",
             "description" => "nullable|string|min:20",
             "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
         ]);
@@ -172,7 +168,6 @@ class ObjetController extends Controller
 
             $objet->update([
                 "nom_objet" => $request->nom_objet ?? $objet->nom_objet,
-                "tel" => $request->tel ?? $objet->tel,
                 "description" => $request->description ?? $objet->description,
                 "image_objet" => $objet->image_objet
             ]);

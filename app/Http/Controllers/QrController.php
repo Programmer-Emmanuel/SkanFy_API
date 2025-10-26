@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class QrController extends Controller
@@ -100,6 +101,14 @@ class QrController extends Controller
     public function scanner_qr(Request $request, $qrId)
 {
     try {
+         $token = $request->bearerToken();
+        if ($token) {
+            $accessToken = PersonalAccessToken::findToken($token);
+            if ($accessToken) {
+                Auth::login($accessToken->tokenable);
+            }
+        }
+
         // On récupère l'utilisateur s'il est connecté (facultatif)
         $userScanner = Auth::user();
 
@@ -149,6 +158,14 @@ class QrController extends Controller
 public function scanner_via_lien(Request $request)
 {
     try {
+
+         $token = $request->bearerToken();
+        if ($token) {
+            $accessToken = PersonalAccessToken::findToken($token);
+            if ($accessToken) {
+                Auth::login($accessToken->tokenable);
+            }
+        }
         $request->validate([
             'link_id' => 'required|string'
         ]);
@@ -386,7 +403,7 @@ private function formatCommeInscription($qr)
 {
     // ✅ Détermination de la propriété et des infos
     $owner = $qr->id_user ? 1 : 0;
-    $info = ($qr->objet || $qr->occasion) ? 1 : 0;
+    $info = $qr->objet ? 1 : 0;
 
     return [
         "qr" => [
@@ -403,6 +420,7 @@ private function formatCommeInscription($qr)
             "id" => $qr->user->id,
             "nom" => $qr->user->nom,
             "email_user" => $qr->user->email_user,
+            "tel_user" => $qr->user->tel_user,
         ] : null,
         "occasion" => $qr->occasion ? [
             "id" => $qr->occasion->id,
@@ -411,7 +429,6 @@ private function formatCommeInscription($qr)
         "objet" => $qr->objet ? [
             "id" => $qr->objet->id,
             "nom_objet" => $qr->objet->nom_objet,
-            "tel" => $qr->objet->tel ?? null,
             "description" => $qr->objet->description ?? null
         ] : null,
     ];
