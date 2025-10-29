@@ -120,11 +120,13 @@ public function register_user(Request $request)
 
         $token = $user->createToken('user_token')->plainTextToken;
 
+        $data = $user->toArray();
+        $data['token'] = $token;
+
         return response()->json([
             'success' => true,
             'message' => 'Vérification réussie.',
-            'data' => $user,
-            'token' => $token
+            'data' => $data
         ]);
     }
 
@@ -155,11 +157,13 @@ public function register_user(Request $request)
     // ✅ Création du token d’accès
     $token = $user->createToken('auth_token')->plainTextToken;
 
+    $data = $user->toArray();
+    $data['token'] = $token;
+
     return response()->json([
         'success' => true,
         'message' => 'Connexion réussie',
-        'user' => $user,
-        'token' => $token
+        'data' => $data
     ], 200);
 }
 
