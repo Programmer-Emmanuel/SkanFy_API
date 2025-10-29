@@ -69,7 +69,7 @@ public function register_user(Request $request)
             $user->otp = $otp;
             $user->otp_expire_at = Carbon::now()->addMinutes(10);
             $user->is_verify = false;
-            $user->type = 0;
+            $user->type_account = 0;
             $user->save();
 
             // Envoi du code OTP par e-mail
@@ -478,7 +478,7 @@ public function creer_sous_admin(Request $request)
                 'email_admin' => $request->email_admin,
                 'tel_admin' => $request->tel_admin,
                 'password_admin' => Hash::make($request->password_admin),
-                'type' => 1 
+                'type_account' => 1 
             ]);
 
             $token = $subAdmin->createToken('auth_token')->plainTextToken;

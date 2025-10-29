@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('otp', 6)->nullable(); 
             $table->timestamp('otp_expire_at')->nullable(); 
             $table->boolean('is_verify')->default(false);
-            $table->integer('type');
+            $table->integer('type_account');
             
             $table->rememberToken();
             $table->timestamps();
