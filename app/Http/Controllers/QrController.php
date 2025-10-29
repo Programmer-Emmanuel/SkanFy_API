@@ -101,7 +101,7 @@ class QrController extends Controller
     public function scanner_qr(Request $request, $qrId)
 {
     try {
-         $token = $request->bearerToken();
+        $token = $request->bearerToken();
         if ($token) {
             $accessToken = PersonalAccessToken::findToken($token);
             if ($accessToken) {
@@ -109,10 +109,9 @@ class QrController extends Controller
             }
         }
 
-        // On récupère l'utilisateur s'il est connecté (facultatif)
         $userScanner = Auth::user();
-
         $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
+
         if (!$qr) {
             return response()->json([
                 "success" => false,
@@ -120,15 +119,12 @@ class QrController extends Controller
             ], 404);
         }
 
-        // Si le QR n'est pas encore actif (premier scan)
+        // Activation si pas encore actif
         if (!$qr->is_active) {
-
-            // Si un utilisateur est connecté → il devient propriétaire
             if ($userScanner) {
                 return $this->activateQrAndAssociateUser($qr, $userScanner);
             }
 
-            // Sinon, on active simplement sans l’associer à un utilisateur
             $qr->update(['is_active' => true]);
 
             return response()->json([
@@ -138,11 +134,24 @@ class QrController extends Controller
             ], 200);
         }
 
-        // Si déjà actif → on affiche les infos existantes
+        // ✅ Déjà actif → on ajoute le champ WhatsApp dans user
+        $data = $this->formatCommeInscription($qr);
+
+        if (isset($data['user']) && $data['user']) {
+            $user = $data['user'];
+
+            if (!empty($qr->user->is_whatsapp) && !empty($qr->user->tel_user)) {
+                $tel = preg_replace('/\D+/', '', $qr->user->tel_user);
+                $user['whatsapp'] = "https://wa.me/+225{$tel}";
+            }
+
+            $data['user'] = $user;
+        }
+
         return response()->json([
             "success" => true,
             "message" => "QR Code déjà activé",
-            "data" => $this->formatCommeInscription($qr)
+            "data" => $data
         ], 200);
 
     } catch (\Exception $e) {
@@ -153,19 +162,17 @@ class QrController extends Controller
         ], 500);
     }
 }
-
-
 public function scanner_via_lien(Request $request)
 {
     try {
-
-         $token = $request->bearerToken();
+        $token = $request->bearerToken();
         if ($token) {
             $accessToken = PersonalAccessToken::findToken($token);
             if ($accessToken) {
                 Auth::login($accessToken->tokenable);
             }
         }
+
         $request->validate([
             'link_id' => 'required|string'
         ]);
@@ -184,7 +191,6 @@ public function scanner_via_lien(Request $request)
         }
 
         if (!$qr->is_active) {
-
             if ($userScanner) {
                 return $this->activateQrAndAssociateUser($qr, $userScanner);
             }
@@ -198,10 +204,24 @@ public function scanner_via_lien(Request $request)
             ], 200);
         }
 
+        // ✅ Déjà actif → champ WhatsApp intégré à user
+        $data = $this->formatCommeInscription($qr);
+
+        if (isset($data['user']) && $data['user']) {
+            $user = $data['user'];
+
+            if (!empty($qr->user->is_whatsapp) && !empty($qr->user->tel_user)) {
+                $tel = preg_replace('/\D+/', '', $qr->user->tel_user);
+                $user['whatsapp'] = "https://wa.me/+225{$tel}";
+            }
+
+            $data['user'] = $user;
+        }
+
         return response()->json([
             "success" => true,
             "message" => "QR Code déjà activé",
-            "data" => $this->formatCommeInscription($qr)
+            "data" => $data
         ], 200);
 
     } catch (\Exception $e) {
@@ -212,6 +232,7 @@ public function scanner_via_lien(Request $request)
         ], 500);
     }
 }
+
 
 
     /**

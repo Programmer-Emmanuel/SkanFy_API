@@ -19,6 +19,8 @@ Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
 Route::middleware('auth:user')->group(function(){
     //Informations de l’utilisateur
     Route::get('/info/user', [AuthController::class, "info_user"]);
+    //Modifier les infos de l’utilisateur
+    Route::post('/update/info/user', [AuthController::class, 'update_info_user']);
 
     //Formatter code Qr
     Route::get('/qr/user/{qrId}/formatte', [QrController::class, 'formater_qr_user']);

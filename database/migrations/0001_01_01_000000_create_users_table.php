@@ -15,6 +15,9 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('nom')->nullable();
             $table->string('tel_user')->unique()->nullable();
+            $table->string('autre_tel')->unique()->nullable();
+            $table->boolean('is_whatsapp')->default(false);
+            $table->string('image_profil')->nullable();
             $table->string('email_user')->unique();
             $table->string('password');
             $table->string('otp', 6)->nullable(); 

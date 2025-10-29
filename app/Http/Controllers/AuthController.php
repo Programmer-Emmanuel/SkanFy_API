@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
 
 class AuthController extends Controller
 {
@@ -18,14 +19,16 @@ public function register_user(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'nom' => 'nullable|string',
-            'email_user' => 'required|email',
-            'tel_user' => 'nullable|digits:10',
+            'email_user' => 'required|email|unique:users',
+            'tel_user' => 'nullable|digits:10|unique:users',
             'password' => 'required|string|min:8'
         ], [
             'email_user.required' => 'L’email est obligatoire.',
             'email_user.email' => 'L’adresse e-mail est invalide.',
+            'email_user.unique' => 'L’email est déjà utilisé.',
             'tel_user.required' => 'Le numéro de téléphone est obligatoire.',
             'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 carctères.',
+            'tel_user.unique' => 'Le numéro de telephone est déjà utilisé.',
             'password.required' => 'Le mot de passe est obligatoire.',
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
         ]);
@@ -161,29 +164,43 @@ public function register_user(Request $request)
 }
 
 
-    public function info_user(Request $request){
-        try{
-            $user = $request->user();
-            if(!$user){
-                return response()->json([
-                    "success" => false,
-                    "message" => "Utilisateur introuvable ou token invalide."
-                ], 403);
-            }
-            return response()->json([
-                "success" => true,
-                "data" => $user,
-                "message" => "Info de l’utilisateur affiché avec succès"
-            ], 200);
-        }
-        catch(QueryException $e){
+    public function info_user(Request $request)
+{
+    try {
+        $user = $request->user();
+
+        if (!$user) {
             return response()->json([
                 "success" => false,
-                "message" => "Erreur lors de l’affichage des informations de l’utilisateur",
-                "erreur" => $e->getMessage()
-            ], 500);
+                "message" => "Utilisateur introuvable ou token invalide."
+            ], 403);
         }
+
+        // Convertir l'utilisateur en tableau
+        $data = $user->toArray();
+
+        // ✅ Si le user a WhatsApp, on ajoute le lien WhatsApp
+        if ($user->is_whatsapp && $user->tel_user) {
+            // On nettoie le numéro (au cas où il contiendrait des espaces ou des symboles)
+            $tel = preg_replace('/\D+/', '', $user->tel_user);
+            $data['whatsapp'] = "https://wa.me/+225{$tel}";
+        }
+
+        return response()->json([
+            "success" => true,
+            "data" => $data,
+            "message" => "Info de l’utilisateur affichée avec succès"
+        ], 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de l’affichage des informations de l’utilisateur",
+            "erreur" => $e->getMessage()
+        ], 500);
     }
+}
+
 
 
 
@@ -260,5 +277,111 @@ public function register_user(Request $request)
                 "erreur" => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function update_info_user(Request $request)
+{
+    try {
+        $user = $request->user();
+
+        // ✅ Validation avec messages personnalisés
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'nom' => 'nullable|string|max:255',
+                'email_user' => 'nullable|email',
+                'tel_user' => 'nullable|string|digits:10',
+                'autre_tel' => 'nullable|string|digits:10',
+                'is_whatsapp' => 'nullable|boolean',
+                'image_profil' => 'nullable|image|max:2048',
+            ],
+            [
+                'nom.string' => 'Le nom doit être une chaîne de caractères.',
+                'nom.max' => 'Le nom ne doit pas dépasser 255 caractères.',
+                'email_user.email' => 'L’adresse e-mail n’est pas valide.',
+                'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+                'autre_tel.digits' => 'Le second numéro de téléphone doit contenir 10 chiffres.',
+                'image_profil.image' => 'Le fichier doit être une image.',
+                'image_profil.max' => 'L’image ne doit pas dépasser 2 Mo.',
+            ]
+        );
+
+        // ❌ Si la validation échoue
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        // ✅ Upload de l’image si fournie
+        if ($request->hasFile('image_profil')) {
+            try {
+                $imageUrl = $this->uploadImageToHosting($request->file('image_profil'));
+                $user->image_profil = $imageUrl;
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Erreur lors de l'envoi de l'image.",
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        // ✅ Mise à jour uniquement si le champ est rempli
+        if ($request->filled('nom')) $user->nom = $request->nom;
+        if ($request->filled('email_user')) $user->email_user = $request->email_user;
+        if ($request->filled('tel_user')) $user->tel_user = $request->tel_user;
+        if ($request->filled('autre_tel')) $user->autre_tel = $request->autre_tel;
+        if ($request->has('is_whatsapp')) $user->is_whatsapp = (bool)$request->is_whatsapp;
+
+        $user->save();
+
+        // ✅ Réponse finale
+        $response = [
+            'success' => true,
+            'data' => $user,
+            'message' => 'Informations mises à jour avec succès.',
+        ];
+
+        // ✅ Lien WhatsApp si applicable
+        if (!empty($user->autre_tel) && $user->is_whatsapp) {
+            $numero = preg_replace('/\D/', '', $user->tel_user);
+            $response['whatsapp'] = "https://wa.me/+225{$numero}";
+        }
+
+        return response()->json($response, 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => "Erreur survenue lors de la modification des informations de l'utilisateur.",
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+
+    private function uploadImageToHosting($image)
+    {
+        $apiKey = '9b1ab6564d99aab6418ad53d3451850b';
+
+        if (!$image->isValid()) {
+            throw new \Exception("Fichier image non valide.");
+        }
+
+        $imageContent = base64_encode(file_get_contents($image->getRealPath()));
+
+        $response = Http::asForm()->post('https://api.imgbb.com/1/upload', [
+            'key' => $apiKey,
+            'image' => $imageContent,
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['data']['url'];
+        }
+
+        throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
     }
 }
