@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('email_admin')->unique();
             $table->string('tel_admin');
             $table->string('password_admin');
+            $table->integer('type');
             $table->timestamps();
         });
     }

@@ -21,6 +21,7 @@ class User extends Authenticatable
         'otp_expire_at',
         'is_verify',
         'password',
+        'type'
     ];
 
      public $incrementing = false; // empêche l'auto-incrémentation

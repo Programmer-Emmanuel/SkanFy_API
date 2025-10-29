@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -68,6 +69,7 @@ public function register_user(Request $request)
             $user->otp = $otp;
             $user->otp_expire_at = Carbon::now()->addMinutes(10);
             $user->is_verify = false;
+            $user->type = 0;
             $user->save();
 
             // Envoi du code OTP par e-mail
@@ -388,4 +390,241 @@ public function register_user(Request $request)
 
         throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
     }
+
+    public function login(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string|min:8'
+    ]);
+
+    // 🔹 Vérifie dans la table des utilisateurs
+    $user = User::where('email_user', $request->email)->first();
+
+    if ($user && Hash::check($request->password, $user->password)) {
+
+        if (!$user->is_verify) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Votre compte n’est pas encore vérifié. Veuillez d’abord vérifier votre compte.'
+            ], 403);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $data = $user->toArray();
+        $data['token'] = $token;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Connexion réussie',
+            'data' => $data
+        ], 200);
+    }
+
+    // 🔹 Sinon, on vérifie dans la table des administrateurs
+    $admin = Admin::where('email_admin', $request->email)->first();
+
+    if ($admin && Hash::check($request->password, $admin->password_admin)) {
+        $token = $admin->createToken('admin_token')->plainTextToken;
+
+        $data = $admin->toArray();
+        $data['token'] = $token;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Connexion réussie',
+            'data' => $data
+        ], 200);
+    }
+
+    // 🔹 Si aucun utilisateur trouvé
+    return response()->json([
+        'success' => false,
+        'message' => 'Aucun utilisateur trouvé.'
+    ], 404);
+}
+
+
+public function creer_sous_admin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nom_admin' => 'required|string|max:255',
+            'email_admin' => 'required|email|unique:admins,email_admin',
+            'tel_admin' => 'required|digits:10|unique:admins,tel_admin',
+            'password_admin' => 'required|string|min:8',
+        ], [
+            'nom_admin.required' => 'Le nom est obligatoire.',
+            'email_admin.required' => 'L’adresse e-mail est obligatoire.',
+            'email_admin.email' => 'L’adresse e-mail est invalide.',
+            'email_admin.unique' => 'Cet e-mail est déjà utilisé.',
+            'tel_admin.required' => 'Le numéro de téléphone est obligatoire.',
+            'tel_admin.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+            'tel_admin.unique' => 'Ce numéro est déjà utilisé.',
+            'password_admin.required' => 'Le mot de passe est obligatoire.',
+            'password_admin.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $subAdmin = Admin::create([
+                'nom_admin' => $request->nom_admin,
+                'email_admin' => $request->email_admin,
+                'tel_admin' => $request->tel_admin,
+                'password_admin' => Hash::make($request->password_admin),
+                'type' => 1 
+            ]);
+
+            $token = $subAdmin->createToken('auth_token')->plainTextToken;
+
+            $data = $subAdmin->toArray();
+            $data['token'] = $token;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sous-administrateur créé avec succès.',
+                'data' => $subAdmin
+            ], 201);
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création du sous-administrateur.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+public function update_admin_info(Request $request)
+{
+    try {
+        $admin = $request->user(); // admin authentifié
+
+        if (!$admin) {
+            return response()->json([
+                'success' => false,
+                'message' => "Administrateur introuvable ou token invalide."
+            ], 403);
+        }
+
+        // Validation (unique email/tel sauf pour l'admin courant)
+        $validator = Validator::make($request->all(), [
+            'nom_admin' => 'nullable|string|max:255',
+            'email_admin' => [
+                'nullable',
+                'email',
+                Rule::unique('admins', 'email_admin')->ignore($admin->id, 'id')
+            ],
+            'tel_admin' => [
+                'nullable',
+                'digits:10',
+                Rule::unique('admins', 'tel_admin')->ignore($admin->id, 'id')
+            ],
+            // ajouter d'autres champs si besoin (ex: image, adresse...)
+        ], [
+            'email_admin.email' => 'L’adresse e-mail est invalide.',
+            'email_admin.unique' => 'Cet e-mail est déjà utilisé.',
+            'tel_admin.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+            'tel_admin.unique' => 'Ce numéro est déjà utilisé.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        // Mise à jour conditionnelle
+        if ($request->filled('nom_admin')) $admin->nom_admin = $request->nom_admin;
+        if ($request->filled('email_admin')) $admin->email_admin = $request->email_admin;
+        if ($request->filled('tel_admin')) $admin->tel_admin = $request->tel_admin;
+        // si tu veux gérer un upload d'image, fais-le ici et assigne $admin->image = $url;
+
+        $admin->save();
+
+        $data = $admin->toArray();
+        // Ne jamais renvoyer le password
+        unset($data['password_admin']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Informations de l’administrateur mises à jour avec succès.',
+            'data' => $data
+        ], 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la mise à jour des informations de l’administrateur.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+public function change_admin_password(Request $request)
+{
+    try{
+        $validator = Validator::make($request->all(),[
+        'old_password' => 'required|string|min:8',
+        'new_password' => 'required|string|min:8|confirmed' // new_password_confirmation
+    ], [
+        'old_password.required' => "L'ancien mot de passe est requis.",
+        'new_password.required' => 'Le nouveau mot de passe est requis.',
+        'new_password.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
+        'new_password.confirmed' => 'La confirmation du nouveau mot de passe ne correspond pas.'
+    ]);
+
+    if($validator->fails()){
+        return response()->json([
+            "success" => false,
+            "message" => $validator->errors()->first()
+        ],422);
+    }
+    $admin = $request->user();
+    if (!$admin) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Administrateur introuvable ou token invalide.'
+        ], 403);
+    }
+
+    // Vérifier l'ancien mot de passe
+    if (!Hash::check($request->old_password, $admin->password_admin)) {
+        return response()->json([
+            'success' => false,
+            'message' => "L'ancien mot de passe est incorrect."
+        ], 401);
+    }
+
+    // Tout est ok -> mise à jour
+    $admin->password_admin = Hash::make($request->new_password);
+    $admin->save();
+
+    // Optionnel : révoquer tous les tokens pour forcer reconnexion
+    // $admin->tokens()->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Mot de passe mis à jour avec succès.'
+    ], 200);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la mise à jour du mot de passe de l’administrateur.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+
 }

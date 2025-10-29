@@ -19,6 +19,7 @@ class Admin extends Authenticatable
         'email_admin',
         'tel_admin',
         'password_admin',
+        'type'
     ];
 
     public $incrementing = false; // empêche l'auto-incrémentation
