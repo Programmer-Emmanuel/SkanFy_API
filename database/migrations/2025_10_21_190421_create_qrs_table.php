@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('qrs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->boolean('is_active');
-            $table->string('link_id');
-            $table->longText('image_qr');
+            $table->string('link_id')->nullable();
+            $table->longText('image_qr')->nullable();
 
             $table->uuid('id_occasion')->nullable();
             $table->uuid('id_objet')->nullable();

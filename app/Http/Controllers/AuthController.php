@@ -58,7 +58,7 @@ public function register_user(Request $request)
             }
 
             // Génération du code OTP
-            $otp = rand(100000, 999999);
+            $otp = rand(1000, 9999);
 
             // Création du nouvel utilisateur
             $user = new User();
@@ -94,7 +94,7 @@ public function register_user(Request $request)
     {
         $request->validate([
             'email_user' => 'required|email',
-            'otp' => 'required|string|size:6'
+            'otp' => 'required|string|size:4'
         ]);
 
         $user = User::where('email_user', $request->email_user)
@@ -123,12 +123,20 @@ public function register_user(Request $request)
         $token = $user->createToken('user_token')->plainTextToken;
 
         $data = $user->toArray();
+        unset($data['type_account']);
         $data['token'] = $token;
 
         return response()->json([
             'success' => true,
             'message' => 'Vérification réussie.',
-            'data' => $data
+            'data' => [
+                "id" => $user->id,
+                "nom" => $user->nom,
+                "email_user" => $user->email_user,
+                "tel_user" => $user->tel_user,
+                "token" => $token
+            ],
+            'type_account' => $user->type_account
         ]);
     }
 
@@ -391,14 +399,14 @@ public function register_user(Request $request)
         throw new \Exception("Erreur lors de l'envoi de l'image : " . $response->body());
     }
 
-    public function login(Request $request)
+public function login(Request $request)
 {
     $request->validate([
         'email' => 'required|email',
         'password' => 'required|string|min:8'
     ]);
 
-    // 🔹 Vérifie dans la table des utilisateurs
+    // 🔹 Vérifie d’abord dans la table des utilisateurs
     $user = User::where('email_user', $request->email)->first();
 
     if ($user && Hash::check($request->password, $user->password)) {
@@ -413,12 +421,20 @@ public function register_user(Request $request)
         $token = $user->createToken('auth_token')->plainTextToken;
 
         $data = $user->toArray();
+        unset($data['type_account']); // 👈 Retire la clé du tableau
         $data['token'] = $token;
 
         return response()->json([
             'success' => true,
             'message' => 'Connexion réussie',
-            'data' => $data
+            'type_account' => $user->type_account, // 👈 Déplacé ici
+            'data' => [
+                "id" => $user->id,
+                "nom" => $user->nom,
+                "email_user" => $user->email_user,
+                "tel_user" => $user->tel_user,
+                "token" => $token
+            ]
         ], 200);
     }
 
@@ -429,12 +445,20 @@ public function register_user(Request $request)
         $token = $admin->createToken('admin_token')->plainTextToken;
 
         $data = $admin->toArray();
+        unset($data['type_account']); // 👈 Supprime du data
         $data['token'] = $token;
 
         return response()->json([
             'success' => true,
             'message' => 'Connexion réussie',
-            'data' => $data
+            'type_account' => $admin->type_account, // 👈 Placé ici
+            'data' => [
+                "id" => $admin->id,
+                "nom" => $admin->nom_admin,
+                "email_user" => $admin->email_admin,
+                "tel_user" => $admin->tel_admin,
+                "token" => $token
+            ]
         ], 200);
     }
 
@@ -444,6 +468,7 @@ public function register_user(Request $request)
         'message' => 'Aucun utilisateur trouvé.'
     ], 404);
 }
+
 
 
 public function creer_sous_admin(Request $request)

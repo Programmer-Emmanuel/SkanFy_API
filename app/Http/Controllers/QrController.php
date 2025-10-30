@@ -17,82 +17,97 @@ class QrController extends Controller
      * ✅ Création d’un QR Code par un admin
      */
     public function creer_qr(Request $request)
-    {
-        try {
-            // ✅ Validation
-            $validator = Validator::make($request->all(), [
-                'nombre_qr' => 'required|integer|min:1|max:100',
-                'nom_occasion' => 'required|string|max:255',
-            ], [
-                'nombre_qr.required' => 'Le nombre de QR est requis.',
-                'nombre_qr.integer' => 'Le nombre de QR doit être un entier.',
-                'nombre_qr.min' => 'Le nombre de QR doit être au minimum 1.',
-                'nombre_qr.max' => 'Le nombre de QR ne peut pas dépasser 100.',
-                'nom_occasion.required' => 'Le nom de l’occasion est requis.',
-                'nom_occasion.string' => 'Le nom de l’occasion doit être une chaîne de caractères.',
-            ]);
+{
+    try {
+        // ✅ Validation
+        $validator = Validator::make($request->all(), [
+            'nombre_qr' => 'required|integer|min:1|max:100',
+            'nom_occasion' => 'required|string|max:255',
+        ], [
+            'nombre_qr.required' => 'Le nombre de QR est requis.',
+            'nombre_qr.integer' => 'Le nombre de QR doit être un entier.',
+            'nombre_qr.min' => 'Le nombre de QR doit être au minimum 1.',
+            'nombre_qr.max' => 'Le nombre de QR ne peut pas dépasser 100.',
+            'nom_occasion.required' => 'Le nom de l’occasion est requis.',
+            'nom_occasion.string' => 'Le nom de l’occasion doit être une chaîne de caractères.',
+        ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    "success" => false,
-                    "message" => $validator->errors()->first()
-                ], 422);
-            }
-
-            // ✅ Récupération de l’admin connecté
-            $admin = Auth::user();
-            if (!$admin) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Token invalide ou expiré."
-                ], 403);
-            }
-
-            // ✅ Création de l’occasion
-            $occasion = \App\Models\Occasion::create([
-                'id' => Str::uuid(),
-                'nom_occasion' => $request->nom_occasion,
-            ]);
-
-
-            // ✅ Création multiple de QR codes
-            for ($i = 0; $i < $request->nombre_qr; $i++) {
-                $qrId = (string) Str::uuid();
-                $link_id = "https://site-front.com/{$qrId}";
-                $qrSvg = QrCode::size(300)->generate($link_id);
-                $qrBase64 = base64_encode($qrSvg);
-
-                $qr = Qr::create([
-                    'id' => $qrId,
-                    'is_active' => false,
-                    'link_id' => $link_id,
-                    'image_qr' => $qrBase64,
-                    'id_occasion' => $occasion->id,
-                    'id_objet' => null,
-                    'id_user' => null,
-                ]);
-
-                Cree::create([
-                    'id' => Str::uuid(),
-                    'admin_id' => $admin->id,
-                    'qr_id' => $qr->id,
-                ]);
-            }
-
-            return response()->json([
-                "success" => true,
-                "message" => "{$request->nombre_qr} QR Code(s) créés avec succès pour l’occasion '{$request->nom_occasion}'.",
-                "data" => $this->formatCommeInscription($qr),
-            ], 201);
-
-        } catch (\Exception $e) {
+        if ($validator->fails()) {
             return response()->json([
                 "success" => false,
-                "message" => "Erreur lors de la création des QR.",
-                "erreur" => $e->getMessage(),
-            ], 500);
+                "message" => $validator->errors()->first()
+            ], 422);
         }
+
+        // ✅ Récupération de l’admin connecté
+        $admin = Auth::user();
+        if (!$admin) {
+            return response()->json([
+                "success" => false,
+                "message" => "Token invalide ou expiré."
+            ], 403);
+        }
+
+        // ✅ Création de l’occasion
+        $occasion = \App\Models\Occasion::create([
+            'id' => Str::uuid(),
+            'nom_occasion' => $request->nom_occasion,
+        ]);
+
+        $qrs = [];
+
+        // ✅ Création multiple de QR codes
+        for ($i = 0; $i < $request->nombre_qr; $i++) {
+
+            // Étape 1️⃣ : créer le QR sans link_id pour avoir un ID effectif
+            $qr = Qr::create([
+                'id' => Str::uuid(),
+                'is_active' => false,
+                'link_id' => null,
+                'image_qr' => null,
+                'id_occasion' => $occasion->id,
+                'id_objet' => null,
+                'id_user' => null,
+            ]);
+
+            // Étape 2️⃣ : créer le link_id basé sur l'ID réel
+            $link_id = "https://site-front.com/{$qr->id}";
+
+            // Étape 3️⃣ : générer le QR code avec ce lien
+            $qrSvg = QrCode::size(300)->generate($link_id);
+            $qrBase64 = base64_encode($qrSvg);
+
+            // Étape 4️⃣ : mettre à jour le QR avec son lien et image
+            $qr->update([
+                'link_id' => $link_id,
+                'image_qr' => $qrBase64,
+            ]);
+
+            // Étape 5️⃣ : enregistrer la relation avec l'admin
+            Cree::create([
+                'id' => Str::uuid(),
+                'admin_id' => $admin->id,
+                'qr_id' => $qr->id,
+            ]);
+
+            $qrs[] = $qr;
+        }
+
+        return response()->json([
+            "success" => true,
+            "message" => "{$request->nombre_qr} QR Code(s) créés avec succès pour l’occasion '{$request->nom_occasion}'.",
+            "data" => $qrs, // Tu peux aussi renvoyer $this->formatCommeInscription($qrs) si tu veux un format particulier
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la création des QR.",
+            "erreur" => $e->getMessage(),
+        ], 500);
     }
+}
+
 
 
     /**
@@ -150,7 +165,7 @@ class QrController extends Controller
 
         return response()->json([
             "success" => true,
-            "message" => "QR Code déjà activé",
+            "message" => "Affichage du code qr",
             "data" => $data
         ], 200);
 
@@ -220,7 +235,7 @@ public function scanner_via_lien(Request $request)
 
         return response()->json([
             "success" => true,
-            "message" => "QR Code déjà activé",
+            "message" => "Affichage du code qr",
             "data" => $data
         ], 200);
 
