@@ -14,9 +14,12 @@ Route::post('/verify/code/otp', [AuthController::class, "verify_otp"]);
 
 Route::post('/login', [AuthController::class, "login"]);
 
-// Scan d'un QR code (nécessite un utilisateur connecté)
-Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
-Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
+
+Route::middleware('auth:sanctum')->group(function(){
+    // Scan d'un QR code (nécessite un utilisateur ou admin connecté)
+    Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
+    Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
+});
 
 Route::middleware('auth:user')->group(function(){
     //Informations de l’utilisateur

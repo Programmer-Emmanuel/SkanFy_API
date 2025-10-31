@@ -109,24 +109,16 @@ class QrController extends Controller
 }
 
 
-
     /**
      * ✅ Scan d’un QR Code par son ID
      */
-    public function scanner_qr(Request $request, $qrId)
+public function scanner_qr(Request $request, $qrId)
 {
     try {
-        $token = $request->bearerToken();
-        if ($token) {
-            $accessToken = PersonalAccessToken::findToken($token);
-            if ($accessToken) {
-                Auth::login($accessToken->tokenable);
-            }
-        }
-
         $userScanner = Auth::user();
-        $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
 
+        // 🔍 Récupération du QR avec ses relations
+        $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
         if (!$qr) {
             return response()->json([
                 "success" => false,
@@ -134,38 +126,28 @@ class QrController extends Controller
             ], 404);
         }
 
-        // Activation si pas encore actif
-        if (!$qr->is_active) {
-            if ($userScanner) {
-                return $this->activateQrAndAssociateUser($qr, $userScanner);
-            }
+        // ❌ Aucun changement dans la base (pas d’update de is_active ni id_user)
+        $qr->load(['user', 'occasion', 'objet']);
 
-            $qr->update(['is_active' => true]);
-
-            return response()->json([
-                "success" => true,
-                "message" => "QR Code activé (sans utilisateur connecté)",
-                "data" => $this->formatCommeInscription($qr)
-            ], 200);
-        }
-
-        // ✅ Déjà actif → on ajoute le champ WhatsApp dans user
+        // ✅ Formatage des données finales
         $data = $this->formatCommeInscription($qr);
 
-        if (isset($data['user']) && $data['user']) {
-            $user = $data['user'];
+        // 👤 Si un utilisateur est connecté, on peut renvoyer ses infos à titre indicatif
+        // if ($userScanner) {
+        //     $data['user_scanner'] = [
+        //         'id' => $userScanner->id,
+        //         'nom' => $userScanner->nom ?? null,
+        //         'email_user' => $userScanner->email_user ?? null,
+        //         'tel_user' => $userScanner->tel_user ?? null,
+        //         'type_account' => $userScanner->type_account ?? null,
+        //     ];
+        // }
 
-            if (!empty($qr->user->is_whatsapp) && !empty($qr->user->tel_user)) {
-                $tel = preg_replace('/\D+/', '', $qr->user->tel_user);
-                $user['whatsapp'] = "https://wa.me/+225{$tel}";
-            }
-
-            $data['user'] = $user;
-        }
+        $data['has_owner'] = $qr->id_user ? 1 : 0;
 
         return response()->json([
             "success" => true,
-            "message" => "Affichage du code qr",
+            "message" => "QR Code scanné avec succès",
             "data" => $data
         ], 200);
 
@@ -180,20 +162,13 @@ class QrController extends Controller
 public function scanner_via_lien(Request $request)
 {
     try {
-        $token = $request->bearerToken();
-        if ($token) {
-            $accessToken = PersonalAccessToken::findToken($token);
-            if ($accessToken) {
-                Auth::login($accessToken->tokenable);
-            }
-        }
-
         $request->validate([
             'link_id' => 'required|string'
         ]);
 
         $userScanner = Auth::user();
 
+        // 🔍 Recherche du QR via son lien
         $qr = Qr::with(['user', 'occasion', 'objet'])
             ->where('link_id', $request->link_id)
             ->first();
@@ -205,37 +180,28 @@ public function scanner_via_lien(Request $request)
             ], 404);
         }
 
-        if (!$qr->is_active) {
-            if ($userScanner) {
-                return $this->activateQrAndAssociateUser($qr, $userScanner);
-            }
+        // ❌ Aucun update — simple consultation
+        $qr->load(['user', 'occasion', 'objet']);
 
-            $qr->update(['is_active' => true]);
-
-            return response()->json([
-                "success" => true,
-                "message" => "QR Code activé (sans utilisateur connecté)",
-                "data" => $this->formatCommeInscription($qr)
-            ], 200);
-        }
-
-        // ✅ Déjà actif → champ WhatsApp intégré à user
+        // ✅ Formatage final
         $data = $this->formatCommeInscription($qr);
 
-        if (isset($data['user']) && $data['user']) {
-            $user = $data['user'];
+        // 👤 Inclure les infos du user connecté si présent (facultatif)
+        // if ($userScanner) {
+        //     $data['user_scanner'] = [
+        //         'id' => $userScanner->id,
+        //         'nom_user' => $userScanner->nom_user ?? null,
+        //         'email_user' => $userScanner->email_user ?? null,
+        //         'tel_user' => $userScanner->tel_user ?? null,
+        //         'type_account' => $userScanner->type_account ?? null,
+        //     ];
+        // }
 
-            if (!empty($qr->user->is_whatsapp) && !empty($qr->user->tel_user)) {
-                $tel = preg_replace('/\D+/', '', $qr->user->tel_user);
-                $user['whatsapp'] = "https://wa.me/+225{$tel}";
-            }
-
-            $data['user'] = $user;
-        }
+        $data['has_owner'] = $qr->id_user ? 1 : 0;
 
         return response()->json([
             "success" => true,
-            "message" => "Affichage du code qr",
+            "message" => "QR Code scanné avec succès",
             "data" => $data
         ], 200);
 
@@ -247,6 +213,8 @@ public function scanner_via_lien(Request $request)
         ], 500);
     }
 }
+
+
 
 
 
@@ -437,8 +405,15 @@ public function liste_qr()
      */
 private function formatCommeInscription($qr)
 {
-    // ✅ Détermination de la propriété et des infos
-    $owner = $qr->id_user ? 1 : 0;
+    $userScanner = Auth::user();
+
+    // 🧠 Vérifie si le QR appartient à un utilisateur
+    $hasOwner = $qr->id_user ? 1 : 0;
+
+    // 🔐 Vérifie si l'utilisateur connecté est le propriétaire
+    $owner = ($userScanner && $qr->id_user === $userScanner->id) ? 1 : 0;
+
+    // 📦 Vérifie s’il y a un objet lié
     $info = $qr->objet ? 1 : 0;
 
     return [
@@ -450,8 +425,9 @@ private function formatCommeInscription($qr)
             "created_at" => $qr->created_at,
             "updated_at" => $qr->updated_at,
         ],
-        "owner" => $owner,  // ✅ 1 = appartient à quelqu’un
-        "info" => $info,    // ✅ 1 = contient des données
+        "owner" => $owner,       // ✅ 1 = c’est moi le propriétaire
+        "has_owner" => $hasOwner, // ✅ 1 = un utilisateur possède déjà ce QR
+        "info" => $info,         // ✅ 1 = contient un objet
         "user" => $qr->user ? [
             "id" => $qr->user->id,
             "nom" => $qr->user->nom,
@@ -469,6 +445,7 @@ private function formatCommeInscription($qr)
         ] : null,
     ];
 }
+
 
 
 

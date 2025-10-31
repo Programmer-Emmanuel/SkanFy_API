@@ -39,90 +39,91 @@ class ObjetController extends Controller
     /**
      * 🔹 Création d’un objet lié à un QR
      */
-    public function create_objet(Request $request, $qrId)
-    {
-        $validator = Validator::make($request->all(), [
-            "nom_objet" => "nullable|string",
-            "description" => "nullable|string|min:20",
-            "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
-        ], [
-            "nom_objet.string" => "Le nom de l’objet doit être une chaîne de caractères.",
-            "description.string" => "La description doit être une chaîne de caractères.",
-            "description.min" => "La description doit avoir au minimum 20 caractères.",
-            "image_objet.image" => "Le fichier doit être une image.",
-            "image_objet.mimes" => "L’image doit être au format JPG, JPEG ou PNG.",
-            "image_objet.max" => "L’image ne doit pas dépasser 2 Mo."
-        ]);
+public function create_objet(Request $request, $qrId)
+{
+    // ✅ Validation des champs
+    $validator = Validator::make($request->all(), [
+        "nom_objet" => "nullable|string|max:255",
+        "description" => "nullable|string|min:20",
+        "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
+    ], [
+        "nom_objet.string" => "Le nom de l’objet doit être une chaîne de caractères.",
+        "description.string" => "La description doit être une chaîne de caractères.",
+        "description.min" => "La description doit avoir au minimum 20 caractères.",
+        "image_objet.image" => "Le fichier doit être une image.",
+        "image_objet.mimes" => "L’image doit être au format JPG, JPEG ou PNG.",
+        "image_objet.max" => "L’image ne doit pas dépasser 2 Mo."
+    ]);
 
-        if ($validator->fails()) {
+    if ($validator->fails()) {
+        return response()->json([
+            "success" => false,
+            "message" => $validator->errors()->first()
+        ], 422);
+    }
+
+    // ✅ Vérification de l’utilisateur connecté
+    $user = $request->user();
+    if (!$user) {
+        return response()->json([
+            "success" => false,
+            "message" => "Utilisateur introuvable ou token invalide."
+        ], 404);
+    }
+
+    try {
+        // 🔍 Vérification du QR
+        $qr = Qr::find($qrId);
+        if (!$qr) {
             return response()->json([
                 "success" => false,
-                "message" => $validator->errors()->first()
-            ], 422);
-        }
-
-        $user = $request->user();
-        if (!$user) {
-            return response()->json([
-                "success" => false,
-                "message" => "Utilisateur introuvable ou token invalide."
+                "message" => "Id du code QR introuvable."
             ], 404);
         }
 
-        try {
-            $qr = Qr::find($qrId);
-            if (!$qr) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Id du code QR introuvable."
-                ], 404);
-            }
-
-            if ($qr->id_user == null || $qr->id_user != $user->id) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Le code QR n’appartient pas à cet utilisateur ou à aucun utilisateur."
-                ], 403);
-            }
-
-            if ($qr->id_objet != null) {
-                return response()->json([
-                    "success" => false,
-                    "message" => "Ce code QR contient déjà un objet. Supprimez-le avant d’en créer un nouveau."
-                ], 422);
-            }
-
-            // ✅ Upload de l'image si présente
-            $imageUrl = null;
-            if ($request->hasFile('image_objet')) {
-                $imageUrl = $this->uploadImageToHosting($request->file('image_objet'));
-            }
-
-            // ✅ Création de l’objet
-            $objet = new Objet();
-            $objet->nom_objet = $request->nom_objet;
-            $objet->description = $request->description;
-            $objet->image_objet = $imageUrl;
-            $objet->save();
-
-            // ✅ Lier l’objet au QR
-            $qr->id_objet = $objet->id;
-            $qr->save();
-
-            return response()->json([
-                "success" => true,
-                "message" => "Objet créé avec succès.",
-                "data" => $objet
-            ], 200);
-
-        } catch (\Exception $e) {
+        // ⚠️ Si le QR contient déjà un objet, on bloque
+        if ($qr->id_objet != null) {
             return response()->json([
                 "success" => false,
-                "message" => "Erreur lors de la création de l’objet.",
-                "error" => $e->getMessage()
-            ], 500);
+                "message" => "Ce code QR contient déjà un objet. Supprimez-le avant d’en créer un nouveau."
+            ], 422);
         }
+
+        // ✅ Upload de l’image si présente
+        $imageUrl = null;
+        if ($request->hasFile('image_objet')) {
+            $imageUrl = $this->uploadImageToHosting($request->file('image_objet'));
+        }
+
+        // ✅ Création de l’objet
+        $objet = new Objet();
+        $objet->nom_objet = $request->nom_objet;
+        $objet->description = $request->description;
+        $objet->image_objet = $imageUrl;
+        $objet->save();
+
+        // ✅ Lier l’objet et activer le QR
+        $qr->update([
+            'id_objet' => $objet->id,
+            'id_user' => $user->id,
+            'is_active' => 1
+        ]);
+
+        return response()->json([
+            "success" => true,
+            "message" => "Objet créé et QR activé avec succès.",
+            "data" =>$objet,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la création de l’objet.",
+            "error" => $e->getMessage()
+        ], 500);
     }
+}
+
 
     /**
      * 🔹 Mise à jour d’un objet
