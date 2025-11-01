@@ -441,7 +441,8 @@ private function formatCommeInscription($qr)
         "objet" => $qr->objet ? [
             "id" => $qr->objet->id,
             "nom_objet" => $qr->objet->nom_objet,
-            "description" => $qr->objet->description ?? null
+            "description" => $qr->objet->description ?? null,
+            "additional_info" => $qr->objet->additional_info ?? null
         ] : null,
     ];
 }

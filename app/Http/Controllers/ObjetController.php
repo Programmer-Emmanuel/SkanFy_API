@@ -44,7 +44,8 @@ public function create_objet(Request $request, $qrId)
     // ✅ Validation des champs
     $validator = Validator::make($request->all(), [
         "nom_objet" => "nullable|string|max:255",
-        "description" => "nullable|string|min:20",
+        "description" => "nullable|string",
+        "additional_info" => "nullable|string",
         "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
     ], [
         "nom_objet.string" => "Le nom de l’objet doit être une chaîne de caractères.",
@@ -100,6 +101,7 @@ public function create_objet(Request $request, $qrId)
         $objet->nom_objet = $request->nom_objet;
         $objet->description = $request->description;
         $objet->image_objet = $imageUrl;
+        $objet->additional_info = $request->additional_info;
         $objet->save();
 
         // ✅ Lier l’objet et activer le QR
@@ -132,8 +134,9 @@ public function create_objet(Request $request, $qrId)
     {
         $validator = Validator::make($request->all(), [
             "nom_objet" => "nullable|string",
-            "description" => "nullable|string|min:20",
-            "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048"
+            "description" => "nullable|string",
+            "image_objet" => "nullable|image|mimes:jpg,jpeg,png|max:2048",
+            "additional_info" => "nullable|string",
         ]);
 
         if ($validator->fails()) {
@@ -170,6 +173,7 @@ public function create_objet(Request $request, $qrId)
             $objet->update([
                 "nom_objet" => $request->nom_objet ?? $objet->nom_objet,
                 "description" => $request->description ?? $objet->description,
+                "additional_info" => $request->additional_info ?? $objet->additional_info,
                 "image_objet" => $objet->image_objet
             ]);
 
@@ -227,6 +231,48 @@ public function create_objet(Request $request, $qrId)
             return response()->json([
                 "success" => false,
                 "message" => "Erreur lors de la suppression de l’objet.",
+                "error" => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function info_objet($qrId){
+        try {
+            $qr = Qr::find($qrId);
+
+            if (!$qr) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "QR code introuvable."
+                ], 404);
+            }
+
+            if (!$qr->id_objet) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Aucun objet n’est lié à ce QR code."
+                ], 404);
+            }
+
+            $objet = Objet::find($qr->id_objet);
+
+            if (!$objet) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Objet introuvable."
+                ], 404);
+            }
+
+            return response()->json([
+                "success" => true,
+                "message" => "Informations de l’objet récupérées avec succès.",
+                "data" => $objet,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                "success" => false,
+                "message" => "Erreur lors de la récupération des informations.",
                 "error" => $e->getMessage()
             ], 500);
         }

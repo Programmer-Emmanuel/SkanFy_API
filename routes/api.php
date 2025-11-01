@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register/user', [AuthController::class, "register_user"]);
 Route::post('/login/user', [AuthController::class, "login_user"]);
 Route::post('/verify/code/otp', [AuthController::class, "verify_otp"]);
-
 Route::post('/login', [AuthController::class, "login"]);
 
 
@@ -19,6 +18,9 @@ Route::middleware('auth:sanctum')->group(function(){
     // Scan d'un QR code (nécessite un utilisateur ou admin connecté)
     Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
     Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
+
+    //Afficher les infos d'un objet a partir de son qrId
+    Route::get('/info/objet/{qrId}', [ObjetController::class, "info_objet"]);
 });
 
 Route::middleware('auth:user')->group(function(){
@@ -28,7 +30,7 @@ Route::middleware('auth:user')->group(function(){
     Route::post('/update/info/user', [AuthController::class, 'update_info_user']);
 
     //Formatter code Qr
-    Route::get('/qr/user/{qrId}/formatte', [QrController::class, 'formater_qr_user']);
+    Route::post('/qr/user/{qrId}/formatte', [QrController::class, 'formater_qr_user']);
 
     //Ajouter un objet au code Qr
     Route::post('/create/objet/qr/{qrId}', [ObjetController::class, "create_objet"]);
@@ -56,7 +58,7 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/create/qr', [QrController::class, "creer_qr"]);
 
     //Formatter code Qr
-    Route::get('/qr/{qrId}/formatte', [QrController::class, 'formater_qr']);
+    Route::post('/qr/{qrId}/formatte', [QrController::class, 'formater_qr']);
 
     //Liste des code qr
     Route::get('/liste/qr', [QrController::class, 'liste_qr']);
