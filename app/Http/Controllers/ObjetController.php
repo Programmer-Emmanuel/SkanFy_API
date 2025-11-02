@@ -278,25 +278,39 @@ public function create_objet(Request $request, $qrId)
         }
     }
 
-    public function all_objet_user(Request $request)
+public function all_objet_user(Request $request)
 {
     $user = $request->user();
 
     try {
         // 🟢 Récupération de tous les QR codes de l'utilisateur
-        $qrs = Qr::where('id_user', $user->id)->get();
+        $qrs = Qr::where('id_user', $user->id)
+            ->whereNotNull('id_objet')
+            ->get();
 
         // 🟠 Vérifie s’il n’a pas de QR code
         if ($qrs->isEmpty()) {
             return response()->json([
-                "success" => false,
-                "message" => "Cet utilisateur n’a pas de code QR."
-            ], 404);
+                "success" => true,
+                "data" => [],
+                "message" => "Aucun objet trouvé pour cet utilisateur"
+            ], 200);
         }
 
-        // 🔵 Récupère tous les objets associés aux QR
-        $objetIds = $qrs->pluck('id_objet')->filter(); // filtre les valeurs nulles
-        $objets = Objet::whereIn('id', $objetIds)->get();
+        // 🔵 Construction des objets personnalisés
+        $objets = $qrs->map(function ($qr) {
+            if ($qr->objet) {
+                return [
+                    'id' => $qr->id, // ⚡ Remplace l'id de l'objet par l'id du QR
+                    'nom_objet' => $qr->objet->nom_objet,
+                    'image_objet' => $qr->objet->image_objet,
+                    'description' => $qr->objet->description,
+                    'created_at' => $qr->objet->created_at,
+                    'updated_at' => $qr->objet->updated_at,
+                ];
+            }
+            return null;
+        })->filter()->values();
 
         return response()->json([
             "success" => true,
@@ -304,7 +318,7 @@ public function create_objet(Request $request, $qrId)
             "data" => $objets
         ], 200);
 
-    } catch (\Illuminate\Database\QueryException $e) {
+    } catch (\Exception $e) {
         return response()->json([
             "success" => false,
             "message" => "Échec lors de la récupération des objets de l’utilisateur.",
@@ -312,5 +326,6 @@ public function create_objet(Request $request, $qrId)
         ], 500);
     }
 }
+
 
 }

@@ -71,7 +71,7 @@ class QrController extends Controller
             ]);
 
             // Étape 2️⃣ : créer le link_id basé sur l'ID réel
-            $link_id = "https://site-front.com/{$qr->id}";
+            $link_id = "https://www.skanfy.com/{$qr->id}";
 
             // Étape 3️⃣ : générer le QR code avec ce lien
             $qrSvg = QrCode::size(300)->generate($link_id);
