@@ -11,7 +11,8 @@ class Objet extends Model
         'nom_objet',
         'image_objet',
         'tel',
-        'description'
+        'description',
+        'additional_info'
     ];
 
     public $incrementing = false; // empêche l'auto-incrémentation

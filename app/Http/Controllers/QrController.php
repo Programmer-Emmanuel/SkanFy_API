@@ -433,6 +433,8 @@ private function formatCommeInscription($qr)
             "nom" => $qr->user->nom,
             "email_user" => $qr->user->email_user,
             "tel_user" => $qr->user->tel_user,
+            "autre_tel" => $qr->user->autre_tel,
+            "image_profil" => $qr->user->image_profil
         ] : null,
         "occasion" => $qr->occasion ? [
             "id" => $qr->occasion->id,

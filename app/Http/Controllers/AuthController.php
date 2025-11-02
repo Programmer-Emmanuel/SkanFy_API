@@ -343,11 +343,11 @@ public function register_user(Request $request)
         }
 
         // ✅ Mise à jour uniquement si le champ est rempli
-        if ($request->filled('nom')) $user->nom = $request->nom;
+        $user->nom = $request->nom;
         if ($request->filled('email_user')) $user->email_user = $request->email_user;
-        if ($request->filled('tel_user')) $user->tel_user = $request->tel_user;
-        if ($request->filled('autre_tel')) $user->autre_tel = $request->autre_tel;
-        if ($request->has('is_whatsapp')) $user->is_whatsapp = (bool)$request->is_whatsapp;
+        $user->tel_user = $request->tel_user;
+        $user->autre_tel = $request->autre_tel;
+        $user->is_whatsapp = (bool)$request->is_whatsapp;
 
         $user->save();
 
@@ -599,12 +599,11 @@ public function change_admin_password(Request $request)
     try{
         $validator = Validator::make($request->all(),[
         'old_password' => 'required|string|min:8',
-        'new_password' => 'required|string|min:8|confirmed' // new_password_confirmation
+        'new_password' => 'required|string|min:8' // new_password_confirmation
     ], [
         'old_password.required' => "L'ancien mot de passe est requis.",
         'new_password.required' => 'Le nouveau mot de passe est requis.',
         'new_password.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
-        'new_password.confirmed' => 'La confirmation du nouveau mot de passe ne correspond pas.'
     ]);
 
     if($validator->fails()){
@@ -645,6 +644,62 @@ public function change_admin_password(Request $request)
         return response()->json([
             'success' => false,
             'message' => 'Erreur lors de la mise à jour du mot de passe de l’administrateur.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function change_user_password(Request $request)
+{
+    try{
+        $validator = Validator::make($request->all(),[
+        'ancien_password' => 'required|string|min:8',
+        'nouveau' => 'required|string|min:8' // new_password_confirmation
+    ], [
+        'ancien_password.required' => "L'ancien mot de passe est requis.",
+        'nouveau.required' => 'Le nouveau mot de passe est requis.',
+        'nouveau.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
+    ]);
+
+    if($validator->fails()){
+        return response()->json([
+            "success" => false,
+            "message" => $validator->errors()->first()
+        ],422);
+    }
+    $user = $request->user();
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Utilisateur introuvable ou token invalide.'
+        ], 403);
+    }
+
+    // Vérifier l'ancien mot de passe
+    if (!Hash::check($request->ancien_password, $user->password)) {
+        return response()->json([
+            'success' => false,
+            'message' => "L'ancien mot de passe est incorrect."
+        ], 401);
+    }
+
+    // Tout est ok -> mise à jour
+    $user->password = Hash::make($request->nouveau);
+    $user->save();
+
+    // Optionnel : révoquer tous les tokens pour forcer reconnexion
+    // $user->tokens()->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Mot de passe mis à jour avec succès.'
+    ], 200);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la mise à jour du mot de passe de l’utilisateur.',
             'error' => $e->getMessage()
         ], 500);
     }

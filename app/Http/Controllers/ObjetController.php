@@ -277,4 +277,40 @@ public function create_objet(Request $request, $qrId)
             ], 500);
         }
     }
+
+    public function all_objet_user(Request $request)
+{
+    $user = $request->user();
+
+    try {
+        // 🟢 Récupération de tous les QR codes de l'utilisateur
+        $qrs = Qr::where('id_user', $user->id)->get();
+
+        // 🟠 Vérifie s’il n’a pas de QR code
+        if ($qrs->isEmpty()) {
+            return response()->json([
+                "success" => false,
+                "message" => "Cet utilisateur n’a pas de code QR."
+            ], 404);
+        }
+
+        // 🔵 Récupère tous les objets associés aux QR
+        $objetIds = $qrs->pluck('id_objet')->filter(); // filtre les valeurs nulles
+        $objets = Objet::whereIn('id', $objetIds)->get();
+
+        return response()->json([
+            "success" => true,
+            "message" => "Liste des objets de l’utilisateur trouvée avec succès.",
+            "data" => $objets
+        ], 200);
+
+    } catch (\Illuminate\Database\QueryException $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Échec lors de la récupération des objets de l’utilisateur.",
+            "error" => $e->getMessage()
+        ], 500);
+    }
+}
+
 }

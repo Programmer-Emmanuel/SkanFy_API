@@ -38,7 +38,10 @@ Route::middleware('auth:user')->group(function(){
     Route::post('/update/objet/qr/{qrId}', [ObjetController::class, "update_objet"]);
     //Supprimer un objet du code Qr
     Route::post('/delete/objet/qr/{qrId}', [ObjetController::class, "delete_objet"]);
-    
+    //Modifier le password de l’utilisateur
+    Route::post('/change/password/user', [AuthController::class, 'change_user_password']);
+    //obtenir tous les objets de l’user
+    Route::get('/objets/user', [ObjetController::class, 'all_objet_user']);
 });
 
 //Authentification Administrateur
