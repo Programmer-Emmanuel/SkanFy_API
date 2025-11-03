@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Qr;
 use App\Models\Cree;
 use App\Models\Occasion;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -559,6 +560,31 @@ public function liste_occasion(Request $request)
             "erreur" => $e->getMessage()
         ], 500);
     }
+}
+
+public function delete_occasion(Request $request, $id){
+    try{
+        $occasion = Occasion::find($id);
+        if(!$occasion){
+            return response()->json([
+                "success" => false,
+                "message" => "Occasion non trouvée"
+            ],404);
+        }
+        $occasion->delete();
+        return response()->json([
+            "success" => true,
+            "message" => "Occasion supprimee avec succès"
+        ],200);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" =>false,
+            "message" => "Erreur lors de la supression de l’occasion",
+            "erreur" => $e->getMessage()
+        ]);
+    }
+
 }
 
 

@@ -75,6 +75,8 @@ Route::middleware('auth:admin')->group(function(){
 
     //Liste des occasions
     Route::get('/liste/occasions', [QrController::class, 'liste_occasion']);
+    //Suppression d’une occasion
+    Route::post('/delete/occasion', [QrController::class, 'delete_occasion']);
 });
 
 
