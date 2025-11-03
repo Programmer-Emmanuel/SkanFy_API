@@ -90,6 +90,14 @@ public function create_objet(Request $request, $qrId)
             ], 422);
         }
 
+        // ⚠️ Si le nom de l’objet est vide → on ne crée pas d’objet
+        if (empty($request->nom_objet)) {
+            return response()->json([
+                "success" => false,
+                "message" => "Le nom de l’objet est requis pour créer un objet."
+            ], 422);
+        }
+
         // ✅ Upload de l’image si présente
         $imageUrl = null;
         if ($request->hasFile('image_objet')) {
@@ -114,7 +122,7 @@ public function create_objet(Request $request, $qrId)
         return response()->json([
             "success" => true,
             "message" => "Objet créé et QR activé avec succès.",
-            "data" =>$objet,
+            "data" => $objet,
         ], 200);
 
     } catch (\Exception $e) {
@@ -125,6 +133,7 @@ public function create_objet(Request $request, $qrId)
         ], 500);
     }
 }
+
 
 
     /**

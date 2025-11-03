@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Qr;
 use App\Models\Cree;
+use App\Models\Occasion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -23,6 +24,7 @@ class QrController extends Controller
         $validator = Validator::make($request->all(), [
             'nombre_qr' => 'required|integer|min:1|max:100',
             'nom_occasion' => 'required|string|max:255',
+            'description' => 'nullable'
         ], [
             'nombre_qr.required' => 'Le nombre de QR est requis.',
             'nombre_qr.integer' => 'Le nombre de QR doit être un entier.',
@@ -52,6 +54,7 @@ class QrController extends Controller
         $occasion = \App\Models\Occasion::create([
             'id' => Str::uuid(),
             'nom_occasion' => $request->nom_occasion,
+            'description' => $request->description
         ]);
 
         $qrs = [];
@@ -115,10 +118,21 @@ class QrController extends Controller
 public function scanner_qr(Request $request, $qrId)
 {
     try {
-        $userScanner = Auth::user();
+        // 🔑 Récupération du token et du user (non obligatoire)
+        $token = $request->bearerToken();
+        $userScanner = null;
+
+        if ($token) {
+            try {
+                $userScanner = Auth::guard('sanctum')->user();
+            } catch (\Exception $e) {
+                $userScanner = null;
+            }
+        }
 
         // 🔍 Récupération du QR avec ses relations
         $qr = Qr::with(['user', 'occasion', 'objet'])->find($qrId);
+
         if (!$qr) {
             return response()->json([
                 "success" => false,
@@ -126,24 +140,8 @@ public function scanner_qr(Request $request, $qrId)
             ], 404);
         }
 
-        // ❌ Aucun changement dans la base (pas d’update de is_active ni id_user)
-        $qr->load(['user', 'occasion', 'objet']);
-
-        // ✅ Formatage des données finales
+        // ✅ Formatage sans activer ni modifier le QR
         $data = $this->formatCommeInscription($qr);
-
-        // 👤 Si un utilisateur est connecté, on peut renvoyer ses infos à titre indicatif
-        // if ($userScanner) {
-        //     $data['user_scanner'] = [
-        //         'id' => $userScanner->id,
-        //         'nom' => $userScanner->nom ?? null,
-        //         'email_user' => $userScanner->email_user ?? null,
-        //         'tel_user' => $userScanner->tel_user ?? null,
-        //         'type_account' => $userScanner->type_account ?? null,
-        //     ];
-        // }
-
-        $data['has_owner'] = $qr->id_user ? 1 : 0;
 
         return response()->json([
             "success" => true,
@@ -166,9 +164,17 @@ public function scanner_via_lien(Request $request)
             'link_id' => 'required|string'
         ]);
 
-        $userScanner = Auth::user();
+        $token = $request->bearerToken();
+        $userScanner = null;
 
-        // 🔍 Recherche du QR via son lien
+        if ($token) {
+            try {
+                $userScanner = Auth::guard('sanctum')->user();
+            } catch (\Exception $e) {
+                $userScanner = null;
+            }
+        }
+
         $qr = Qr::with(['user', 'occasion', 'objet'])
             ->where('link_id', $request->link_id)
             ->first();
@@ -180,24 +186,7 @@ public function scanner_via_lien(Request $request)
             ], 404);
         }
 
-        // ❌ Aucun update — simple consultation
-        $qr->load(['user', 'occasion', 'objet']);
-
-        // ✅ Formatage final
         $data = $this->formatCommeInscription($qr);
-
-        // 👤 Inclure les infos du user connecté si présent (facultatif)
-        // if ($userScanner) {
-        //     $data['user_scanner'] = [
-        //         'id' => $userScanner->id,
-        //         'nom_user' => $userScanner->nom_user ?? null,
-        //         'email_user' => $userScanner->email_user ?? null,
-        //         'tel_user' => $userScanner->tel_user ?? null,
-        //         'type_account' => $userScanner->type_account ?? null,
-        //     ];
-        // }
-
-        $data['has_owner'] = $qr->id_user ? 1 : 0;
 
         return response()->json([
             "success" => true,
@@ -213,6 +202,7 @@ public function scanner_via_lien(Request $request)
         ], 500);
     }
 }
+
 
 
 
@@ -403,17 +393,23 @@ public function liste_qr()
     /**
      * ✅ Format de sortie cohérent pour le frontend
      */
-private function formatCommeInscription($qr)
+private function formatCommeInscription($qr, $request = null)
 {
-    $userScanner = Auth::user();
+    $request = $request ?? request();
 
-    // 🧠 Vérifie si le QR appartient à un utilisateur
+    $token = $request->bearerToken();
+    $userScanner = null;
+
+    if ($token) {
+        try {
+            $userScanner = Auth::guard('sanctum')->user();
+        } catch (\Exception $e) {
+            $userScanner = null;
+        }
+    }
+
     $hasOwner = $qr->id_user ? 1 : 0;
-
-    // 🔐 Vérifie si l'utilisateur connecté est le propriétaire
     $owner = ($userScanner && $qr->id_user === $userScanner->id) ? 1 : 0;
-
-    // 📦 Vérifie s’il y a un objet lié
     $info = $qr->objet ? 1 : 0;
 
     return [
@@ -425,9 +421,9 @@ private function formatCommeInscription($qr)
             "created_at" => $qr->created_at,
             "updated_at" => $qr->updated_at,
         ],
-        "owner" => $owner,       // ✅ 1 = c’est moi le propriétaire
-        "has_owner" => $hasOwner, // ✅ 1 = un utilisateur possède déjà ce QR
-        "info" => $info,         // ✅ 1 = contient un objet
+        "owner" => $owner,
+        "has_owner" => $hasOwner,
+        "info" => $info,
         "user" => $qr->user ? [
             "id" => $qr->user->id,
             "nom" => $qr->user->nom,
@@ -448,6 +444,7 @@ private function formatCommeInscription($qr)
         ] : null,
     ];
 }
+
 
 
 
@@ -515,5 +512,54 @@ private function formatCommeInscription($qr)
         ], 500);
     }
 }
+
+public function liste_occasion(Request $request)
+{
+    try {
+        // 🔹 Récupération de toutes les occasions
+        $occasions = Occasion::all();
+
+        if ($occasions->isEmpty()) {
+            return response()->json([
+                "success" => true,
+                "data" => [],
+                "message" => "Aucune occasion trouvée."
+            ], 200);
+        }
+
+        // 🔹 Construction du format demandé
+        $data = $occasions->map(function ($occasion) {
+            // Total de QR générés pour cette occasion
+            $nombreGenerated = Qr::where('id_occasion', $occasion->id)->count();
+
+            // Total de QR qui ont un objet (donc scannés/activés)
+            $nombreScanned = Qr::where('id_occasion', $occasion->id)
+                                ->whereNotNull('id_objet')
+                                ->count();
+
+            return [
+                "id" => $occasion->id,
+                "name" => $occasion->nom_occasion,
+                "description" => $occasion->description ?? "Aucune description disponible",
+                "nombre_generated" => $nombreGenerated,
+                "nombre_scanned" => $nombreScanned
+            ];
+        });
+
+        return response()->json([
+            "success" => true,
+            "message" => "Liste des occasions récupérée avec succès.",
+            "data" => $data
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la récupération des occasions.",
+            "erreur" => $e->getMessage()
+        ], 500);
+    }
+}
+
 
 }

@@ -706,5 +706,56 @@ public function change_user_password(Request $request)
 }
 
 
+public function liste_user(){
+    try{
+        $user = User::all();
+        if(empty($user)){
+            return response()->json([
+                "success" => true,
+                "data" => [],
+                "message" => "Liste des utilisateurs affichées"
+            ]);
+        }
+            return response()->json([
+                "success" => true,
+                "data" => $user,
+                "message" => "Liste des utilisateurs affichées"
+            ]);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de l’affichage de la liste des utilisateurs.",
+            "erreur" => $e->getMessage()
+        ]);
+    }
+}
+
+public function delete_user(Request $request, $id){
+    try{
+        $user = User::find($id);
+        if(!$user){
+            return response()->json([
+                "success" => false,
+                "message" => "Utilisateur non trouvé"
+            ],404);
+        }
+        $user->delete();
+        return response()->json([
+            "success" => true,
+            "message" => "Utilisateur supprimé avec succès."
+        ]);
+
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la suppression de l’utilisateur.",
+            "erreur" => $e->getMessage()
+        ]);
+    }
+}
+
+
 
 }

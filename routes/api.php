@@ -13,11 +13,11 @@ Route::post('/login/user', [AuthController::class, "login_user"]);
 Route::post('/verify/code/otp', [AuthController::class, "verify_otp"]);
 Route::post('/login', [AuthController::class, "login"]);
 
-
+// Scan d'un QR code (nécessite un utilisateur ou admin connecté)
+Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
+Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
 Route::middleware('auth:sanctum')->group(function(){
-    // Scan d'un QR code (nécessite un utilisateur ou admin connecté)
-    Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
-    Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
+
 
     //Afficher les infos d'un objet a partir de son qrId
     Route::get('/info/objet/{qrId}', [ObjetController::class, "info_objet"]);
@@ -68,6 +68,13 @@ Route::middleware('auth:admin')->group(function(){
 
     //Liste des code qr par occasions
     Route::get('/liste/qr/occasion', [QrController::class, 'liste_qr_par_occasion']);
+
+    //Liste des utilisateurs
+    Route::get('/users', [AuthController::class, "liste_user"]);
+    Route::post('/delete/user/{id}', [AuthController::class, "delete_user"]);
+
+    //Liste des occasions
+    Route::get('/liste/occasions', [QrController::class, 'liste_occasion']);
 });
 
 
