@@ -58,7 +58,7 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/change/password/admin', [AuthController::class, 'change_admin_password']);
 
     // Creation de code Qr (nécessite un admin connecté)
-    Route::post('/create/qr', [QrController::class, "creer_qr"]);
+    Route::post('/create/qr/{id_occasion}', [QrController::class, "creer_qr"]);
 
     //Formatter code Qr
     Route::post('/qr/{qrId}/formatte', [QrController::class, 'formater_qr']);
@@ -73,10 +73,14 @@ Route::middleware('auth:admin')->group(function(){
     Route::get('/users', [AuthController::class, "liste_user"]);
     Route::post('/delete/user/{id}', [AuthController::class, "delete_user"]);
 
+    //Creation d’une occasion
+    Route::post('/ajout/occasion', [QrController::class, 'ajout_occasion']);
     //Liste des occasions
     Route::get('/liste/occasions', [QrController::class, 'liste_occasion']);
+    //Update d’une occasion
+    Route::post('/update/occasion/{id}', [QrController::class, 'update_occasion']);
     //Suppression d’une occasion
-    Route::post('/delete/occasion', [QrController::class, 'delete_occasion']);
+    Route::post('/delete/occasion/{id}', [QrController::class, 'delete_occasion']);
 });
 
 

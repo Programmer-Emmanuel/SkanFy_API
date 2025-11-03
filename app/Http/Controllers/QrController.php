@@ -18,21 +18,17 @@ class QrController extends Controller
     /**
      * ✅ Création d’un QR Code par un admin
      */
-    public function creer_qr(Request $request)
+    public function creer_qr(Request $request, $id_occasion)
 {
     try {
         // ✅ Validation
         $validator = Validator::make($request->all(), [
             'nombre_qr' => 'required|integer|min:1|max:100',
-            'nom_occasion' => 'required|string|max:255',
-            'description' => 'nullable'
         ], [
             'nombre_qr.required' => 'Le nombre de QR est requis.',
             'nombre_qr.integer' => 'Le nombre de QR doit être un entier.',
             'nombre_qr.min' => 'Le nombre de QR doit être au minimum 1.',
             'nombre_qr.max' => 'Le nombre de QR ne peut pas dépasser 100.',
-            'nom_occasion.required' => 'Le nom de l’occasion est requis.',
-            'nom_occasion.string' => 'Le nom de l’occasion doit être une chaîne de caractères.',
         ]);
 
         if ($validator->fails()) {
@@ -42,7 +38,7 @@ class QrController extends Controller
             ], 422);
         }
 
-        // ✅ Récupération de l’admin connecté
+        // ✅ Vérifier l'admin connecté
         $admin = Auth::user();
         if (!$admin) {
             return response()->json([
@@ -51,19 +47,19 @@ class QrController extends Controller
             ], 403);
         }
 
-        // ✅ Création de l’occasion
-        $occasion = \App\Models\Occasion::create([
-            'id' => Str::uuid(),
-            'nom_occasion' => $request->nom_occasion,
-            'description' => $request->description
-        ]);
+        // ✅ Vérifier si l’occasion existe
+        $occasion = \App\Models\Occasion::find($id_occasion);
+        if (!$occasion) {
+            return response()->json([
+                "success" => false,
+                "message" => "Occasion introuvable."
+            ], 404);
+        }
 
         $qrs = [];
 
-        // ✅ Création multiple de QR codes
+        // ✅ Création multiple de QR codes liés à cette occasion
         for ($i = 0; $i < $request->nombre_qr; $i++) {
-
-            // Étape 1️⃣ : créer le QR sans link_id pour avoir un ID effectif
             $qr = Qr::create([
                 'id' => Str::uuid(),
                 'is_active' => false,
@@ -74,20 +70,20 @@ class QrController extends Controller
                 'id_user' => null,
             ]);
 
-            // Étape 2️⃣ : créer le link_id basé sur l'ID réel
+            // Lien unique
             $link_id = "https://www.skanfy.com/{$qr->id}";
 
-            // Étape 3️⃣ : générer le QR code avec ce lien
+            // Génération du QR Code
             $qrSvg = QrCode::size(300)->generate($link_id);
             $qrBase64 = base64_encode($qrSvg);
 
-            // Étape 4️⃣ : mettre à jour le QR avec son lien et image
+            // Mise à jour du QR
             $qr->update([
                 'link_id' => $link_id,
                 'image_qr' => $qrBase64,
             ]);
 
-            // Étape 5️⃣ : enregistrer la relation avec l'admin
+            // Enregistrement de la création
             Cree::create([
                 'id' => Str::uuid(),
                 'admin_id' => $admin->id,
@@ -99,8 +95,8 @@ class QrController extends Controller
 
         return response()->json([
             "success" => true,
-            "message" => "{$request->nombre_qr} QR Code(s) créés avec succès pour l’occasion '{$request->nom_occasion}'.",
-            "data" => $qrs, // Tu peux aussi renvoyer $this->formatCommeInscription($qrs) si tu veux un format particulier
+            "message" => "{$request->nombre_qr} QR Code(s) créés avec succès pour l’occasion '{$occasion->nom_occasion}'.",
+            "data" => $qrs,
         ], 201);
 
     } catch (\Exception $e) {
@@ -111,6 +107,7 @@ class QrController extends Controller
         ], 500);
     }
 }
+
 
 
     /**
@@ -585,6 +582,78 @@ public function delete_occasion(Request $request, $id){
         ]);
     }
 
+}
+
+public function ajout_occasion(Request $request){
+    $validator = Validator::make($request->all(), [
+        'nom_occasion' => "required|string",
+        'description' => "nullable"
+    ],[
+        'nom_occasion.required' => "Le nom de l’occasion est requis."
+    ]);
+
+    if($validator->fails()){
+        return response()->json([
+            "success" => false,
+            "message" => $validator->errors()->first()
+        ]);
+    }
+    try{
+        $occasion = new Occasion();
+        $occasion->nom_occasion = $request->nom_occasion;
+        $occasion->description = $request->description;
+        $occasion->save();
+
+        return response()->json([
+            "success" => true,
+            "data" => $occasion,
+            "message" => "Occasion crée avec succès"
+        ]);
+
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la création d’une occasion",
+            "erreur" => $e->getMessage()
+        ]);
+    }
+}
+
+public function update_occasion(Request $request, $id){
+    $occasion = Occasion::find($id);
+    $validator = Validator::make($request->all(), [
+        'nom_occasion' => "required|string",
+        'description' => "nullable"
+    ],[
+        'nom_occasion.required' => "Le nom de l’occasion est requis."
+    ]);
+
+    if($validator->fails()){
+        return response()->json([
+            "success" => false,
+            "message" => $validator->errors()->first()
+        ]);
+    }
+    try{
+        $occasion->nom_occasion = $request->nom_occasion;
+        $occasion->description = $request->description;
+        $occasion->save();
+
+        return response()->json([
+            "success" => true,
+            "data" => $occasion,
+            "message" => "Occasion mis à jour avec succès"
+        ]);
+
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur lors de la mise à jour de l’occasion",
+            "erreur" => $e->getMessage()
+        ]);
+    }
 }
 
 
