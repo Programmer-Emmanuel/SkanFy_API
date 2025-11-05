@@ -24,7 +24,12 @@ class User extends Authenticatable
         'type'
     ];
 
-     public $incrementing = false; // empêche l'auto-incrémentation
+    protected $casts = [
+        'tel_user' => 'array',
+        'autre_tel' => 'array'
+    ];
+
+    public $incrementing = false; // empêche l'auto-incrémentation
     protected $keyType = 'string'; // la clé primaire sera une string
 
     protected static function boot()

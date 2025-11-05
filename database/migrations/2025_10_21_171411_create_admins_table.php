@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('nom_admin');
             $table->string('email_admin')->unique();
             $table->string('tel_admin');
+            $table->boolean('is_whatsapp');
+            $table->string('image_profil')->nullable();
             $table->string('password_admin');
             $table->integer('type_account');
             $table->timestamps();

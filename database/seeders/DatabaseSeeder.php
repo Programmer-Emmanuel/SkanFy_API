@@ -14,9 +14,12 @@ class DatabaseSeeder extends Seeder
             'nom_admin' => 'Administrateur',
             'email_admin' => 'administrateur@gmail.com',
             'tel_admin' => '0102030405',
+            'is_whatsapp' => true,
             'password_admin' => Hash::make('admin123'),
-            'type_account' => 2
+            'type_account' => 2,
         ]);
+
+
         
     }
 }

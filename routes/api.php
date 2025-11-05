@@ -17,15 +17,17 @@ Route::post('/login', [AuthController::class, "login"]);
 Route::get('/scan/qr/{qrId}', [QrController::class, "scanner_qr"]);
 Route::post('/scan/qr/link', [QrController::class, "scanner_via_lien"]);
 Route::middleware('auth:sanctum')->group(function(){
-
-
     //Afficher les infos d'un objet a partir de son qrId
     Route::get('/info/objet/{qrId}', [ObjetController::class, "info_objet"]);
+        //Informations de l’utilisateur
+    Route::get('/info/user', [AuthController::class, "info_user"]);
+
+    Route::post('/update/info/', [AuthController::class, 'update_info']);
+
+    Route::post('/change/password/', [AuthController::class, 'change_password']);
 });
 
 Route::middleware('auth:user')->group(function(){
-    //Informations de l’utilisateur
-    Route::get('/info/user', [AuthController::class, "info_user"]);
     //Modifier les infos de l’utilisateur
     Route::post('/update/info/user', [AuthController::class, 'update_info_user']);
 
@@ -55,7 +57,7 @@ Route::middleware('auth:admin')->group(function(){
     //Modifier les infos de l’admin
     Route::post('/update/info/admin', [AuthController::class, 'update_admin_info']);
     //Modifier le password de l’admin
-    Route::post('/change/password/admin', [AuthController::class, 'change_admin_password']);
+    Route::post('/change/password/admin', [AuthController::class, 'change_password']);
 
     // Creation de code Qr (nécessite un admin connecté)
     Route::post('/create/qr', [QrController::class, "creer_qr"]);
@@ -86,10 +88,10 @@ Route::middleware('auth:admin')->group(function(){
     //Historique des occasion
     Route::get('/historique/occasions', [QrController::class, 'historique_occasion']);
     //Route pour telecharger les codes qr
-    Route::get('/occasions/{id}/download-zip', [QrController::class, 'downloadZip'])->name('occasions.download.zip');
+    
 });
 
-
+Route::get('/occasions/{id}/download-zip', [QrController::class, 'downloadZip'])->name('occasions.download.zip');
 
     //test sms
     Route::get('/test-sms', function () {

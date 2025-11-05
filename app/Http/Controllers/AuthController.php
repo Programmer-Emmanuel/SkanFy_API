@@ -20,8 +20,8 @@ public function register_user(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'nom' => 'nullable|string',
-            'email_user' => 'required|email|unique:users',
-            'tel_user' => 'nullable|digits:10|unique:users',
+            'email_user' => 'required|email',
+            'tel_user' => 'nullable|digits:10',
             'password' => 'required|string|min:8'
         ], [
             'email_user.required' => 'L’email est obligatoire.',
@@ -45,7 +45,7 @@ public function register_user(Request $request)
             $existingUser = User::where('email_user', $request->email_user)->first();
 
             // Si un utilisateur existe déjà et est vérifié
-            if ($existingUser && $existingUser->is_verify) {
+            if ($existingUser && $existingUser->is_verify === true) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Cet email est déjà utilisé par un compte vérifié.'
@@ -178,7 +178,7 @@ public function register_user(Request $request)
 }
 
 
-    public function info_user(Request $request)
+public function info_user(Request $request)
 {
     try {
         $user = $request->user();
@@ -190,30 +190,86 @@ public function register_user(Request $request)
             ], 403);
         }
 
-        // Convertir l'utilisateur en tableau
-        $data = $user->toArray();
+        // 🧩 Si c’est un ADMIN
+        if (isset($user->email_admin)) {
+            // ✅ Décodage JSON du tel_admin (si stocké comme texte JSON)
+            $tel_admin = json_decode($user->tel_admin, true);
 
-        // ✅ Si le user a WhatsApp, on ajoute le lien WhatsApp
-        if ($user->is_whatsapp && $user->tel_user) {
-            // On nettoie le numéro (au cas où il contiendrait des espaces ou des symboles)
+            $data = [
+                "id" => $user->id,
+                "nom" => $user->nom_admin,
+                "email_user" => $user->email_admin,
+                "tel_user" => [
+                    "value" => $tel_admin['value'] ?? $user->tel_admin ?? null,
+                    "is_whatsapp" => $tel_admin['is_whatsapp'] ?? $user->is_whatsapp ?? false,
+                ],
+                "image_profil" => $user->image_profil ?? null,
+                "is_verify" => 1,
+                "type_account" => $user->type_account,
+                "created_at" => $user->created_at,
+                "updated_at" => $user->updated_at,
+            ];
+
+            // 🔗 Lien WhatsApp pour admin
+            if (($tel_admin['is_whatsapp'] ?? $user->is_whatsapp) && ($tel_admin['value'] ?? $user->tel_admin)) {
+                $tel = preg_replace('/\D+/', '', $tel_admin['value'] ?? $user->tel_admin);
+                $data['tel_user']['whatsapp_link'] = "https://wa.me/+225{$tel}";
+            }
+
+            return response()->json([
+                "success" => true,
+                "data" => $data,
+                "message" => "Informations de l’administrateur affichées avec succès."
+            ], 200);
+        }
+
+        // 🧍 Si c’est un UTILISATEUR
+        $data = [
+            "id" => $user->id,
+            "nom" => $user->nom,
+            "email_user" => $user->email_user,
+            "tel_user" => [
+                "value" => $user->tel_user,
+                "is_whatsapp" => (bool) $user->is_whatsapp_un,
+            ],
+            "autre_tel" => [
+                "value" => $user->autre_tel,
+                "is_whatsapp" => (bool) $user->is_whatsapp_deux,
+            ],
+            "image_profil" => $user->image_profil,
+            "is_verify" => $user->is_verify,
+            "type_account" => $user->type_account,
+            "created_at" => $user->created_at,
+            "updated_at" => $user->updated_at,
+        ];
+
+        // 🔗 Lien WhatsApp pour le premier numéro
+        if ($user->is_whatsapp_un && $user->tel_user) {
             $tel = preg_replace('/\D+/', '', $user->tel_user);
-            $data['whatsapp'] = "https://wa.me/+225{$tel}";
+            $data['tel_user']['whatsapp_link'] = "https://wa.me/+225{$tel}";
+        }
+
+        // 🔗 Lien WhatsApp pour le deuxième numéro
+        if ($user->is_whatsapp_deux && $user->autre_tel) {
+            $tel2 = preg_replace('/\D+/', '', $user->autre_tel);
+            $data['autre_tel']['whatsapp_link'] = "https://wa.me/+225{$tel2}";
         }
 
         return response()->json([
             "success" => true,
             "data" => $data,
-            "message" => "Info de l’utilisateur affichée avec succès"
+            "message" => "Informations de l’utilisateur affichées avec succès."
         ], 200);
 
-    } catch (QueryException $e) {
+    } catch (\Exception $e) {
         return response()->json([
             "success" => false,
-            "message" => "Erreur lors de l’affichage des informations de l’utilisateur",
+            "message" => "Erreur lors de l’affichage des informations.",
             "erreur" => $e->getMessage()
         ], 500);
     }
 }
+
 
 
 
@@ -269,58 +325,35 @@ public function register_user(Request $request)
 
     }
 
-        public function info_admin(Request $request){
-        try{
-            $admin = $request->user();
-            if(!$admin){
-                return response()->json([
-                    "success" => false,
-                    "message" => "Administrateur introuvable ou token invalide."
-                ], 403);
-            }
-            return response()->json([
-                "success" => true,
-                "data" => $admin,
-                "message" => "Info de l’administrateur affiché avec succès"
-            ], 200);
-        }
-        catch(QueryException $e){
-            return response()->json([
-                "success" => false,
-                "message" => "Erreur lors de l’affichage des informations de l’administrateur",
-                "erreur" => $e->getMessage()
-            ], 500);
-        }
-    }
 
     public function update_info_user(Request $request)
 {
     try {
         $user = $request->user();
 
-        // ✅ Validation avec messages personnalisés
+        // ✅ Validation des champs
         $validator = Validator::make(
             $request->all(),
             [
                 'nom' => 'nullable|string|max:255',
                 'email_user' => 'nullable|email',
-                'tel_user' => 'nullable|string|digits:10',
-                'autre_tel' => 'nullable|string|digits:10',
-                'is_whatsapp' => 'nullable|boolean',
+                'tel_user.value' => 'nullable|string|digits:10',
+                'tel_user.is_whatsapp' => 'nullable|boolean',
+                'autre_tel.value' => 'nullable|string|digits:10',
+                'autre_tel.is_whatsapp' => 'nullable|boolean',
                 'image_profil' => 'nullable|image|max:2048',
             ],
             [
                 'nom.string' => 'Le nom doit être une chaîne de caractères.',
                 'nom.max' => 'Le nom ne doit pas dépasser 255 caractères.',
                 'email_user.email' => 'L’adresse e-mail n’est pas valide.',
-                'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
-                'autre_tel.digits' => 'Le second numéro de téléphone doit contenir 10 chiffres.',
+                'tel_user.value.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+                'autre_tel.value.digits' => 'Le second numéro doit contenir 10 chiffres.',
                 'image_profil.image' => 'Le fichier doit être une image.',
                 'image_profil.max' => 'L’image ne doit pas dépasser 2 Mo.',
             ]
         );
 
-        // ❌ Si la validation échoue
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -342,38 +375,77 @@ public function register_user(Request $request)
             }
         }
 
-        // ✅ Mise à jour uniquement si le champ est rempli
-        $user->nom = $request->nom;
-        if ($request->filled('email_user')) $user->email_user = $request->email_user;
-        $user->tel_user = $request->tel_user;
-        $user->autre_tel = $request->autre_tel;
-        $user->is_whatsapp = (bool)$request->is_whatsapp;
+        // ✅ Mise à jour des champs simples
+        if ($request->filled('nom')) {
+            $user->nom = $request->nom;
+        }
+        if ($request->filled('email_user')) {
+            $user->email_user = $request->email_user;
+        }
+
+        // 🟢 Gestion des champs imbriqués
+        if ($request->has('tel_user.value')) {
+            $user->tel_user = $request->input('tel_user.value');
+        }
+        if ($request->has('tel_user.is_whatsapp')) {
+            $user->is_whatsapp_un = (bool) $request->input('tel_user.is_whatsapp');
+        }
+
+        if ($request->has('autre_tel.value')) {
+            $user->autre_tel = $request->input('autre_tel.value');
+        }
+        if ($request->has('autre_tel.is_whatsapp')) {
+            $user->is_whatsapp_deux = (bool) $request->input('autre_tel.is_whatsapp');
+        }
 
         $user->save();
 
-        // ✅ Réponse finale
-        $response = [
-            'success' => true,
-            'data' => $user,
-            'message' => 'Informations mises à jour avec succès.',
+        // ✅ Réponse structurée
+        $data = [
+            "id" => $user->id,
+            "nom" => $user->nom,
+            "email_user" => $user->email_user,
+            "tel_user" => [
+                "value" => $user->tel_user,
+                "is_whatsapp" => (bool) $user->is_whatsapp_un,
+            ],
+            "autre_tel" => [
+                "value" => $user->autre_tel,
+                "is_whatsapp" => (bool) $user->is_whatsapp_deux,
+            ],
+            "image_profil" => $user->image_profil,
+            "is_verify" => $user->is_verify,
+            "type_account" => $user->type_account,
         ];
 
-        // ✅ Lien WhatsApp si applicable
-        if (!empty($user->autre_tel) && $user->is_whatsapp) {
-            $numero = preg_replace('/\D/', '', $user->tel_user);
-            $response['whatsapp'] = "https://wa.me/+225{$numero}";
+        // 🔗 Ajout des liens WhatsApp automatiques
+        if ($user->is_whatsapp_un && $user->tel_user) {
+            $tel1 = preg_replace('/\D+/', '', $user->tel_user);
+            $data['tel_user']['whatsapp_link'] = "https://wa.me/+225{$tel1}";
         }
 
-        return response()->json($response, 200);
+        if ($user->is_whatsapp_deux && $user->autre_tel) {
+            $tel2 = preg_replace('/\D+/', '', $user->autre_tel);
+            $data['autre_tel']['whatsapp_link'] = "https://wa.me/+225{$tel2}";
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'message' => 'Informations mises à jour avec succès.',
+        ], 200);
 
     } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => "Erreur survenue lors de la modification des informations de l'utilisateur.",
+            'message' => "Erreur survenue lors de la mise à jour de l'utilisateur.",
             'error' => $e->getMessage(),
         ], 500);
     }
 }
+
+
+
 
 
 
@@ -594,117 +666,214 @@ public function update_admin_info(Request $request)
     }
 }
 
-public function change_admin_password(Request $request)
+public function update_info(Request $request)
 {
-    try{
-        $validator = Validator::make($request->all(),[
-        'old_password' => 'required|string|min:8',
-        'new_password' => 'required|string|min:8' // new_password_confirmation
-    ], [
-        'old_password.required' => "L'ancien mot de passe est requis.",
-        'new_password.required' => 'Le nouveau mot de passe est requis.',
-        'new_password.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
-    ]);
+    try {
+        $auth = $request->user();
 
-    if($validator->fails()){
+        if (!$auth) {
+            return response()->json([
+                'success' => false,
+                'message' => "Utilisateur ou administrateur introuvable ou token invalide."
+            ], 403);
+        }
+
+        // 🔍 Détection du type (admin ou user)
+        $isAdmin = isset($auth->email_admin);
+
+        // ✅ Validation commune
+        $validator = Validator::make($request->all(), [
+            'nom' => 'nullable|string|max:255',
+            'email_user' => [
+                'nullable',
+                'email',
+                $isAdmin
+                    ? Rule::unique('admins', 'email_admin')->ignore($auth->id, 'id')
+                    : Rule::unique('users', 'email_user')->ignore($auth->id, 'id')
+            ],
+            'tel_user.value' => 'nullable|string|digits:10',
+            'tel_user.is_whatsapp' => 'nullable|boolean',
+            'autre_tel.value' => 'nullable|string|digits:10',
+            'autre_tel.is_whatsapp' => 'nullable|boolean',
+            'image_profil' => 'nullable|image|max:2048',
+        ], [
+            'nom.string' => 'Le nom doit être une chaîne de caractères.',
+            'nom.max' => 'Le nom ne doit pas dépasser 255 caractères.',
+            'email_user.email' => 'L’adresse e-mail n’est pas valide.',
+            'tel_user.value.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+            'autre_tel.value.digits' => 'Le second numéro doit contenir 10 chiffres.',
+            'image_profil.image' => 'Le fichier doit être une image.',
+            'image_profil.max' => 'L’image ne doit pas dépasser 2 Mo.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        // ✅ Upload de l’image si fournie
+        if ($request->hasFile('image_profil')) {
+            try {
+                $imageUrl = $this->uploadImageToHosting($request->file('image_profil'));
+                $auth->image_profil = $imageUrl;
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Erreur lors de l'envoi de l'image.",
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        // ✅ Mise à jour du nom
+        if ($request->filled('nom')) {
+            if ($isAdmin) {
+                $auth->nom_admin = $request->nom;
+            } else {
+                $auth->nom = $request->nom;
+            }
+        }
+
+        // ✅ Mise à jour de l’e-mail
+        if ($request->filled('email_user')) {
+            if ($isAdmin) {
+                $auth->email_admin = $request->email_user;
+            } else {
+                $auth->email_user = $request->email_user;
+            }
+        }
+
+        // ✅ Téléphone principal
+        if ($request->has('tel_user.value')) {
+            if ($isAdmin) {
+                $auth->tel_admin = $request->input('tel_user.value');
+            } else {
+                $auth->tel_user = $request->input('tel_user.value');
+            }
+        }
+
+        if ($request->has('tel_user.is_whatsapp')) {
+            if ($isAdmin) {
+                $auth->is_whatsapp = (bool) $request->input('tel_user.is_whatsapp');
+            } else {
+                $auth->is_whatsapp_un = (bool) $request->input('tel_user.is_whatsapp');
+            }
+        }
+
+        // ✅ Second téléphone (pour user uniquement)
+        if (!$isAdmin) {
+            if ($request->has('autre_tel.value')) {
+                $auth->autre_tel = $request->input('autre_tel.value');
+            }
+            if ($request->has('autre_tel.is_whatsapp')) {
+                $auth->is_whatsapp_deux = (bool) $request->input('autre_tel.is_whatsapp');
+            }
+        }
+
+        $auth->save();
+
+        // ✅ Structure de réponse commune
+        $data = [
+            "id" => $auth->id,
+            "nom" => $isAdmin ? $auth->nom_admin : $auth->nom,
+            "email_user" => $isAdmin ? $auth->email_admin : $auth->email_user,
+            "tel_user" => [
+                "value" => $isAdmin ? $auth->tel_admin : $auth->tel_user,
+                "is_whatsapp" => (bool) ($isAdmin ? $auth->is_whatsapp : $auth->is_whatsapp_un),
+            ],
+            "autre_tel" => !$isAdmin ? [
+                "value" => $auth->autre_tel,
+                "is_whatsapp" => (bool) $auth->is_whatsapp_deux,
+            ] : null,
+            "image_profil" => $auth->image_profil,
+            "type_account" => $auth->type_account,
+        ];
+
+        // 🔗 Lien WhatsApp principal
+        $tel1 = preg_replace('/\D+/', '', $data['tel_user']['value']);
+        if ($data['tel_user']['is_whatsapp'] && $tel1) {
+            $data['tel_user']['whatsapp_link'] = "https://wa.me/+225{$tel1}";
+        }
+
+        // 🔗 Lien WhatsApp secondaire (user uniquement)
+        if (!$isAdmin && $data['autre_tel'] && $data['autre_tel']['is_whatsapp']) {
+            $tel2 = preg_replace('/\D+/', '', $data['autre_tel']['value']);
+            $data['autre_tel']['whatsapp_link'] = "https://wa.me/+225{$tel2}";
+        }
+
         return response()->json([
-            "success" => false,
-            "message" => $validator->errors()->first()
-        ],422);
-    }
-    $admin = $request->user();
-    if (!$admin) {
+            'success' => true,
+            'message' => 'Informations mises à jour avec succès.',
+            'data' => $data,
+        ], 200);
+
+    } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Administrateur introuvable ou token invalide.'
-        ], 403);
-    }
-
-    // Vérifier l'ancien mot de passe
-    if (!Hash::check($request->old_password, $admin->password_admin)) {
-        return response()->json([
-            'success' => false,
-            'message' => "L'ancien mot de passe est incorrect."
-        ], 401);
-    }
-
-    // Tout est ok -> mise à jour
-    $admin->password_admin = Hash::make($request->new_password);
-    $admin->save();
-
-    // Optionnel : révoquer tous les tokens pour forcer reconnexion
-    // $admin->tokens()->delete();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Mot de passe mis à jour avec succès.'
-    ], 200);
-    }
-    catch(QueryException $e){
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la mise à jour du mot de passe de l’administrateur.',
-            'error' => $e->getMessage()
+            'message' => "Erreur lors de la mise à jour des informations.",
+            'error' => $e->getMessage(),
         ], 500);
     }
 }
 
 
-public function change_user_password(Request $request)
+public function change_password(Request $request)
 {
-    try{
-        $validator = Validator::make($request->all(),[
-        'ancien_password' => 'required|string|min:8',
-        'nouveau' => 'required|string|min:8' // new_password_confirmation
-    ], [
-        'ancien_password.required' => "L'ancien mot de passe est requis.",
-        'nouveau.required' => 'Le nouveau mot de passe est requis.',
-        'nouveau.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
-    ]);
+    try {
+        $auth = $request->user();
 
-    if($validator->fails()){
+        if (!$auth) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur introuvable ou token invalide.'
+            ], 403);
+        }
+
+        $isAdmin = isset($auth->password_admin);
+
+        $validator = Validator::make($request->all(), [
+            'ancien_password' => 'required|string|min:8',
+            'nouveau' => 'required|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "success" => false,
+                "message" => $validator->errors()->first()
+            ], 422);
+        }
+
+        $old = $request->ancien_password;
+        $new = $request->nouveau;
+
+        // ✅ Vérifier ancien mot de passe
+        $passwordField = $isAdmin ? 'password_admin' : 'password';
+        if (!Hash::check($old, $auth->$passwordField)) {
+            return response()->json([
+                'success' => false,
+                'message' => "L'ancien mot de passe est incorrect."
+            ], 401);
+        }
+
+        // ✅ Mise à jour
+        $auth->$passwordField = Hash::make($new);
+        $auth->save();
+
         return response()->json([
-            "success" => false,
-            "message" => $validator->errors()->first()
-        ],422);
-    }
-    $user = $request->user();
-    if (!$user) {
+            'success' => true,
+            'message' => 'Mot de passe mis à jour avec succès.'
+        ], 200);
+
+    } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Utilisateur introuvable ou token invalide.'
-        ], 403);
-    }
-
-    // Vérifier l'ancien mot de passe
-    if (!Hash::check($request->ancien_password, $user->password)) {
-        return response()->json([
-            'success' => false,
-            'message' => "L'ancien mot de passe est incorrect."
-        ], 401);
-    }
-
-    // Tout est ok -> mise à jour
-    $user->password = Hash::make($request->nouveau);
-    $user->save();
-
-    // Optionnel : révoquer tous les tokens pour forcer reconnexion
-    // $user->tokens()->delete();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Mot de passe mis à jour avec succès.'
-    ], 200);
-    }
-    catch(QueryException $e){
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la mise à jour du mot de passe de l’utilisateur.',
+            'message' => 'Erreur lors de la mise à jour du mot de passe.',
             'error' => $e->getMessage()
         ], 500);
     }
 }
-
 
 public function liste_user(){
     try{

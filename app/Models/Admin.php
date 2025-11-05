@@ -22,6 +22,11 @@ class Admin extends Authenticatable
         'type'
     ];
 
+    protected $casts = [
+        'tel_admin' => 'array',
+    ];
+
+
     public $incrementing = false; // empêche l'auto-incrémentation
     protected $keyType = 'string'; // la clé primaire sera une string
 
