@@ -8,27 +8,32 @@ use App\Models\Occasion;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use ZipArchive;
 
 class QrController extends Controller
 {
     /**
      * ✅ Création d’un QR Code par un admin
      */
-    public function creer_qr(Request $request, $id_occasion)
+    public function creer_qr(Request $request)
 {
     try {
         // ✅ Validation
         $validator = Validator::make($request->all(), [
             'nombre_qr' => 'required|integer|min:1|max:100',
+            'id_occasion' => 'required' 
         ], [
             'nombre_qr.required' => 'Le nombre de QR est requis.',
             'nombre_qr.integer' => 'Le nombre de QR doit être un entier.',
             'nombre_qr.min' => 'Le nombre de QR doit être au minimum 1.',
             'nombre_qr.max' => 'Le nombre de QR ne peut pas dépasser 100.',
+            'id_occasion.required' => "L’id de l’occasion doit être requis."
         ]);
 
         if ($validator->fails()) {
@@ -48,7 +53,7 @@ class QrController extends Controller
         }
 
         // ✅ Vérifier si l’occasion existe
-        $occasion = \App\Models\Occasion::find($id_occasion);
+        $occasion = Occasion::find($request->id_occasion);
         if (!$occasion) {
             return response()->json([
                 "success" => false,
@@ -56,9 +61,20 @@ class QrController extends Controller
             ], 404);
         }
 
+        // ✅ Préparer les dossiers
+        $rootPath = storage_path('app/occasions');
+        if (!File::exists($rootPath)) {
+            File::makeDirectory($rootPath, 0777, true, true);
+        }
+
+        $occasionPath = $rootPath . '/' . $occasion->nom_occasion;
+        if (!File::exists($occasionPath)) {
+            File::makeDirectory($occasionPath, 0777, true, true);
+        }
+
         $qrs = [];
 
-        // ✅ Création multiple de QR codes liés à cette occasion
+        // ✅ Création multiple de QR codes
         for ($i = 0; $i < $request->nombre_qr; $i++) {
             $qr = Qr::create([
                 'id' => Str::uuid(),
@@ -70,20 +86,35 @@ class QrController extends Controller
                 'id_user' => null,
             ]);
 
-            // Lien unique
-            $link_id = "https://www.skanfy.com/{$qr->id}";
+            // 🔗 Lien unique
+            $link_id = "https://skanfy.com/{$qr->id}";
 
-            // Génération du QR Code
-            $qrSvg = QrCode::size(300)->generate($link_id);
+            // 🌀 Génération du QR en SVG
+            $qrSvg = QrCode::format('svg')->size(300)->generate($link_id);
+
+            // ✅ Conversion en base64 pour la BDD
             $qrBase64 = base64_encode($qrSvg);
 
-            // Mise à jour du QR
+            // ✅ Sauvegarder la version SVG dans la base
             $qr->update([
                 'link_id' => $link_id,
                 'image_qr' => $qrBase64,
             ]);
 
-            // Enregistrement de la création
+            // 🖼️ Sauvegarde locale du PNG sans Imagick
+            // On envoie le SVG vers une API externe qui convertit en PNG
+            $response = Http::asForm()->post('https://api.qrserver.com/v1/create-qr-code/', [
+                'data' => $link_id,
+                'size' => '300x300',
+            ]);
+
+            if ($response->successful()) {
+                $pngData = $response->body();
+                $pngPath = $occasionPath . '/' . $qr->id . '.png';
+                File::put($pngPath, $pngData);
+            }
+
+            // ✅ Journalisation
             Cree::create([
                 'id' => Str::uuid(),
                 'admin_id' => $admin->id,
@@ -107,6 +138,7 @@ class QrController extends Controller
         ], 500);
     }
 }
+
 
 
 
@@ -584,6 +616,41 @@ public function delete_occasion(Request $request, $id){
 
 }
 
+public function occasion($id){
+    try{
+        $occasion = Occasion::find($id);
+        $nombreGenerated = Qr::where('id_occasion', $occasion->id)->count();
+
+            // Total de QR qui ont un objet (donc scannés/activés)
+            $nombreScanned = Qr::where('id_occasion', $occasion->id)
+                                ->whereNotNull('id_objet')
+                                ->count();
+        if(!$occasion){
+            return response()->json([
+                "success" => false,
+                "message" => "Occasion non trouvé."
+            ],404);
+        }
+        return response()->json([
+            "success" => true,
+            "data" => [
+                "id" => $occasion->id,
+                "name" => $occasion->nom_occasion,
+                "description" => $occasion->description ?? "Aucune description disponible",
+                "nombre_generated" => $nombreGenerated,
+                "nombre_scanned" => $nombreScanned
+            ]
+        ]);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            "success" => false,
+            "message" => "Erreur survenue lors de l’afficage de l’occasion",
+            "erreur" => $e->getMessage()
+        ]);
+    }
+}
+
 public function ajout_occasion(Request $request){
     $validator = Validator::make($request->all(), [
         'nom_occasion' => "required|string",
@@ -603,6 +670,16 @@ public function ajout_occasion(Request $request){
         $occasion->nom_occasion = $request->nom_occasion;
         $occasion->description = $request->description;
         $occasion->save();
+
+        $rootPath = storage_path('app/occasions');
+        if (!File::exists($rootPath)) {
+            File::makeDirectory($rootPath, 0777, true, true);
+        }
+
+        $occasionPath = $rootPath . '/' . $occasion->nom_occasion;
+        if (!File::exists($occasionPath)) {
+            File::makeDirectory($occasionPath, 0777, true, true);
+        }
 
         return response()->json([
             "success" => true,
@@ -656,5 +733,86 @@ public function update_occasion(Request $request, $id){
     }
 }
 
+public function historique_occasion()
+{
+    try {
+        // On récupère les occasions avec le nombre de QR liés
+        $occasions = Occasion::withCount('qrs')->get();
 
+        $data = $occasions->map(function ($occasion) {
+            return [
+                'id' => $occasion->id,
+                'organisation' => $occasion->nom_occasion,
+                'generated_number' => $occasion->qrs_count,
+                'download_link' => route('occasions.download.zip', ['id' => $occasion->id]),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ], 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de l’affichage de la liste des historiques.',
+            'erreur' => $e->getMessage(),
+        ], 500);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur interne du serveur.',
+            'erreur' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+    public function downloadZip($id)
+    {
+        $occasion = Occasion::find($id);
+
+        if (!$occasion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Occasion introuvable.',
+            ], 404);
+        }
+
+        $folderPath = storage_path("app/occasions/{$occasion->nom_occasion}");
+
+        if (!File::exists($folderPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Aucun QR trouvé pour cette occasion.",
+            ], 404);
+        }
+
+        $zipFileName = "{$occasion->nom_occasion}.zip";
+        $zipFilePath = storage_path("app/occasions/{$zipFileName}");
+
+        // Supprimer ancien ZIP s’il existe
+        if (File::exists($zipFilePath)) {
+            File::delete($zipFilePath);
+        }
+
+        // Création du ZIP
+        $zip = new ZipArchive();
+        if ($zip->open($zipFilePath, ZipArchive::CREATE) === TRUE) {
+            $files = File::files($folderPath);
+            foreach ($files as $file) {
+                $zip->addFile($file, basename($file));
+            }
+            $zip->close();
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création du fichier ZIP.',
+            ], 500);
+        }
+
+        // Téléchargement du ZIP
+        return response()->download($zipFilePath)->deleteFileAfterSend(true);
+    }
 }

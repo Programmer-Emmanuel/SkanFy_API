@@ -58,7 +58,7 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/change/password/admin', [AuthController::class, 'change_admin_password']);
 
     // Creation de code Qr (nécessite un admin connecté)
-    Route::post('/create/qr/{id_occasion}', [QrController::class, "creer_qr"]);
+    Route::post('/create/qr', [QrController::class, "creer_qr"]);
 
     //Formatter code Qr
     Route::post('/qr/{qrId}/formatte', [QrController::class, 'formater_qr']);
@@ -77,10 +77,16 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/ajout/occasion', [QrController::class, 'ajout_occasion']);
     //Liste des occasions
     Route::get('/liste/occasions', [QrController::class, 'liste_occasion']);
+    //Afficher une occasion
+    Route::get('/occasion/{id}', [QrController::class, 'occasion']);
     //Update d’une occasion
     Route::post('/update/occasion/{id}', [QrController::class, 'update_occasion']);
     //Suppression d’une occasion
     Route::post('/delete/occasion/{id}', [QrController::class, 'delete_occasion']);
+    //Historique des occasion
+    Route::get('/historique/occasions', [QrController::class, 'historique_occasion']);
+    //Route pour telecharger les codes qr
+    Route::get('/occasions/{id}/download-zip', [QrController::class, 'downloadZip'])->name('occasions.download.zip');
 });
 
 

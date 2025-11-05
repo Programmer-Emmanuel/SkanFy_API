@@ -25,4 +25,9 @@ class Occasion extends Model
             }
         });
     }
+
+    public function qrs()
+    {
+        return $this->hasMany(\App\Models\Qr::class, 'id_occasion', 'id');
+    }
 }
