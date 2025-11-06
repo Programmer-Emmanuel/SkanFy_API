@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -549,7 +550,6 @@ public function creer_sous_admin(Request $request)
             'nom_admin' => 'required|string|max:255',
             'email_admin' => 'required|email|unique:admins,email_admin',
             'tel_admin' => 'required|digits:10|unique:admins,tel_admin',
-            'password_admin' => 'required|string|min:8',
         ], [
             'nom_admin.required' => 'Le nom est obligatoire.',
             'email_admin.required' => 'L’adresse e-mail est obligatoire.',
@@ -558,8 +558,6 @@ public function creer_sous_admin(Request $request)
             'tel_admin.required' => 'Le numéro de téléphone est obligatoire.',
             'tel_admin.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
             'tel_admin.unique' => 'Ce numéro est déjà utilisé.',
-            'password_admin.required' => 'Le mot de passe est obligatoire.',
-            'password_admin.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
         ]);
 
         if ($validator->fails()) {
@@ -570,23 +568,40 @@ public function creer_sous_admin(Request $request)
         }
 
         try {
+            $nom = preg_replace('/\s+/', '', $request->nom_admin);
+            $partNom = Str::substr(Str::lower($nom), 0, 3);
+            if (Str::length($partNom) < 3) {
+                // si le nom < 3 lettres, compléter avec 'x'
+                $partNom = Str::padRight($partNom, 3, 'x');
+            }
+
+            $telDigits = preg_replace('/\D/', '', $request->tel_admin);
+            $partTel = substr($telDigits, 0, 2);
+            if (strlen($partTel) < 2) {
+                // si moins de 2 chiffres, compléter avec '0'
+                $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+            }
+
+            $rawPassword = $partNom . $partTel . 'admin';
+
+            $hashedPassword = Hash::make($rawPassword);
+            
             $subAdmin = Admin::create([
                 'nom_admin' => $request->nom_admin,
                 'email_admin' => $request->email_admin,
                 'tel_admin' => $request->tel_admin,
-                'password_admin' => Hash::make($request->password_admin),
+                'is_whatsapp' => false,
+                'password_admin' => $hashedPassword,
                 'type_account' => 1 
             ]);
 
-            $token = $subAdmin->createToken('auth_token')->plainTextToken;
-
             $data = $subAdmin->toArray();
-            $data['token'] = $token;
+            $data['password_admin'] = $rawPassword;
 
             return response()->json([
                 'success' => true,
                 'message' => 'Sous-administrateur créé avec succès.',
-                'data' => $subAdmin
+                'data' => $data
             ], 201);
         } catch (QueryException $e) {
             return response()->json([
@@ -875,30 +890,45 @@ public function change_password(Request $request)
     }
 }
 
-public function liste_user(){
-    try{
-        $user = User::all();
-        if(empty($user)){
-            return response()->json([
-                "success" => true,
-                "data" => [],
-                "message" => "Liste des utilisateurs affichées"
-            ]);
-        }
-            return response()->json([
-                "success" => true,
-                "data" => $user,
-                "message" => "Liste des utilisateurs affichées"
-            ]);
-    }
-    catch(QueryException $e){
+public function liste_user(Request $request)
+{
+    try {
+        $users = User::where('type_account', 0)->get();
+
+        $data = $users->map(function ($user) {
+            // 🔹 Transformer tel_user
+            $user->tel_user = [
+                'value' => $user->tel_user,
+                'is_whatsapp' => (int) $user->is_whatsapp_un,
+            ];
+
+            // 🔹 Transformer autre_tel
+            $user->autre_tel = [
+                'value' => $user->autre_tel,
+                'is_whatsapp' => (int) $user->is_whatsapp_deux,
+            ];
+
+            // 🔹 Retirer les anciens champs inutiles dans la réponse
+            unset($user->is_whatsapp_un, $user->is_whatsapp_deux);
+
+            return $user;
+        });
+
         return response()->json([
-            "success" => false,
-            "message" => "Erreur lors de l’affichage de la liste des utilisateurs.",
-            "erreur" => $e->getMessage()
-        ]);
+            'success' => true,
+            'data' => $data,
+            'message' => 'Liste des utilisateurs affichée avec succès.',
+        ], 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération de la liste des utilisateurs.',
+            'erreur' => $e->getMessage(),
+        ], 500);
     }
 }
+
 
 public function delete_user(Request $request, $id){
     try{
@@ -924,6 +954,79 @@ public function delete_user(Request $request, $id){
         ]);
     }
 }
+public function liste_admin(Request $request)
+{
+    $admin = $request->user();
+
+    // 🔐 Vérifie les droits d’accès
+    if ($admin->type_account != 2) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vous n’êtes pas autorisé à afficher la liste des admins.'
+        ], 403);
+    }
+
+    try {
+        $liste = Admin::where('type_account', 1)->get();
+
+        $data = $liste->map(function ($item) {
+            // 🔹 Recalcul du mot de passe si l’admin n’a jamais été modifié
+            if ($item->created_at->equalTo($item->updated_at)) {
+                $nom = preg_replace('/\s+/', '', $item->nom_admin);
+                $partNom = Str::substr(Str::lower($nom), 0, 3);
+                if (Str::length($partNom) < 3) {
+                    $partNom = Str::padRight($partNom, 3, 'x');
+                }
+
+                $telDigits = preg_replace('/\D/', '', $item->tel_admin);
+                $partTel = substr($telDigits, 0, 2);
+                if (strlen($partTel) < 2) {
+                    $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+                }
+
+                $rawPassword = $partNom . $partTel . 'admin';
+                $password = $rawPassword;
+            } else {
+                $password = '-';
+            }
+
+            // 🔸 Structure identique à celle des users
+            return [
+                'id' => $item->id,
+                'nom' => $item->nom_admin,
+                'tel_user' => [
+                    'value' => $item->tel_admin,
+                    'is_whatsapp' => (int) $item->is_whatsapp_un ?? 0,
+                ],
+                'image_profil' => $item->image_profil ? url('storage/' . $item->image_profil) : null,
+                'email_user' => $item->email_admin,
+                'password' => $password,
+                'otp' => $item->otp,
+                'otp_expire_at' => $item->otp_expire_at,
+                'is_verify' => $item->is_verify,
+                'type_account' => $item->type_account,
+                'remember_token' => $item->remember_token,
+                'created_at' => $item->created_at,
+                'updated_at' => $item->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Liste des admins affichée avec succès.',
+            'data' => $data
+        ], 200);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de l’affichage de la liste des admins.',
+            'erreur' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
 
 
 

@@ -87,7 +87,8 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/delete/occasion/{id}', [QrController::class, 'delete_occasion']);
     //Historique des occasion
     Route::get('/historique/occasions', [QrController::class, 'historique_occasion']);
-    //Route pour telecharger les codes qr
+
+    Route::get('/liste/admins', [AuthController::class, 'liste_admin']);
     
 });
 
