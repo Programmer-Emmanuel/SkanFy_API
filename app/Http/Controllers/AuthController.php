@@ -17,78 +17,86 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+
 public function register_user(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nom' => 'nullable|string',
-            'email_user' => 'required|email',
-            'tel_user' => 'nullable|digits:10',
-            'password' => 'required|string|min:8'
-        ], [
-            'email_user.required' => 'L’email est obligatoire.',
-            'email_user.email' => 'L’adresse e-mail est invalide.',
-            'email_user.unique' => 'L’email est déjà utilisé.',
-            'tel_user.required' => 'Le numéro de téléphone est obligatoire.',
-            'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 carctères.',
-            'tel_user.unique' => 'Le numéro de telephone est déjà utilisé.',
-            'password.required' => 'Le mot de passe est obligatoire.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'nom' => 'nullable|string',
+        'email_user' => 'required|email',
+        'tel_user' => 'nullable|digits:10',
+        'password' => 'required|string|min:8'
+    ], [
+        'email_user.required' => 'L’email est obligatoire.',
+        'email_user.email' => 'L’adresse e-mail est invalide.',
+        'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+        'password.required' => 'Le mot de passe est obligatoire.',
+        'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.'
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first(),
-            ], 422);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
 
-        try {
-            $existingUser = User::where('email_user', $request->email_user)->first();
+    try {
+        // Vérifier si un utilisateur existe déjà avec le même email ou téléphone
+        $existingUser = User::where('email_user', $request->email_user)
+            ->orWhere('tel_user', $request->tel_user)
+            ->first();
 
-            // Si un utilisateur existe déjà et est vérifié
-            if ($existingUser && $existingUser->is_verify === true) {
+        if ($existingUser) {
+            // Si le compte est déjà vérifié => bloquer
+            if ($existingUser->is_verify) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cet email est déjà utilisé par un compte vérifié.'
+                    'message' => 'Cet email ou numéro est déjà utilisé par un compte vérifié.'
                 ], 409);
             }
 
-            // Si un utilisateur existe mais non vérifié, on le supprime
-            if ($existingUser && !$existingUser->is_verify) {
-                $existingUser->delete();
-            }
-
-            // Génération du code OTP
-            $otp = rand(1000, 9999);
-
-            // Création du nouvel utilisateur
-            $user = new User();
-            $user->nom = $request->nom;
-            $user->email_user = $request->email_user;
-            $user->tel_user = $request->tel_user;
-            $user->password = Hash::make($request->password);
-            $user->otp = $otp;
-            $user->otp_expire_at = Carbon::now()->addMinutes(10);
-            $user->is_verify = false;
-            $user->type_account = 0;
-            $user->save();
-
-            // Envoi du code OTP par e-mail
-            Mail::to($request->email_user)->send(new SendOtpMail($otp));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Un code OTP a été envoyé à votre adresse e-mail pour vérification.'
-            ], 201);
-
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => "Erreur lors de l’inscription.",
-                'erreur' => $e->getMessage()
-            ], 500);
+            // Sinon (non vérifié) => supprimer l'ancien pour recréer un nouveau
+            $existingUser->delete();
         }
+
+        // Génération du code OTP
+        $otp = rand(1000, 9999);
+
+        // Création du nouvel utilisateur
+        $user = new User();
+        $user->nom = $request->nom;
+        $user->email_user = $request->email_user;
+        $user->tel_user = $request->tel_user;
+        $user->password = Hash::make($request->password);
+        $user->otp = $otp;
+        $user->otp_expire_at = Carbon::now()->addMinutes(10);
+        $user->is_verify = false;
+        $user->type_account = 0;
+        $user->save();
+
+        // Envoi du code OTP par e-mail
+        Mail::to($user->email_user)->send(new SendOtpMail($otp));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Un code OTP a été envoyé à votre adresse e-mail pour vérification.',
+        ], 201);
+
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de l’inscription.',
+            'erreur' => $e->getMessage(),
+        ], 500);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Une erreur est survenue.',
+            'erreur' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     // ✅ Vérification du code OTP
     public function verify_otp(Request $request)
@@ -229,14 +237,14 @@ public function info_user(Request $request)
             "id" => $user->id,
             "nom" => $user->nom,
             "email_user" => $user->email_user,
-            "tel_user" => [
+            "tel_user" => $user->tel_user ? [
                 "value" => $user->tel_user,
                 "is_whatsapp" => (bool) $user->is_whatsapp_un,
-            ],
-            "autre_tel" => [
+            ] : null,
+            "autre_tel" => $user->autre_tel ? [
                 "value" => $user->autre_tel,
                 "is_whatsapp" => (bool) $user->is_whatsapp_deux,
-            ],
+            ] : null,
             "image_profil" => $user->image_profil,
             "is_verify" => $user->is_verify,
             "type_account" => $user->type_account,

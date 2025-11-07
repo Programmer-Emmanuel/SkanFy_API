@@ -458,8 +458,14 @@ private function formatCommeInscription($qr, $request = null)
             "id" => $qr->user->id,
             "nom" => $qr->user->nom,
             "email_user" => $qr->user->email_user,
-            "tel_user" => $qr->user->tel_user,
-            "autre_tel" => $qr->user->autre_tel,
+            "tel_user" => $qr->user->tel_user ? [
+                'value' => $qr->user->tel_user,
+                'is_whatsapp' => $qr->user->is_whatsapp_un
+            ] : null,
+            "autre_tel" => $qr->user->autre_tel ? [
+                'value' => $qr->user->autre_tel,
+                'is_whatsapp' => $qr->user->is_whatsapp_deux
+            ] : null,
             "image_profil" => $qr->user->image_profil
         ] : null,
         "occasion" => $qr->occasion ? [
@@ -737,7 +743,7 @@ public function historique_occasion()
 {
     try {
         // On récupère les occasions avec le nombre de QR liés
-        $occasions = Occasion::withCount('qrs')->get();
+        $occasions = Occasion::withCount('qrs')->having('qrs_count','>',0)->get();
 
         $data = $occasions->map(function ($occasion) {
             return [
@@ -751,6 +757,7 @@ public function historique_occasion()
         return response()->json([
             'success' => true,
             'data' => $data,
+            'message' => 'Historiques des occasions'
         ], 200);
 
     } catch (QueryException $e) {
