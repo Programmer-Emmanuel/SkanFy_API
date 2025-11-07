@@ -877,7 +877,7 @@ public function change_password(Request $request)
             return response()->json([
                 'success' => false,
                 'message' => "L'ancien mot de passe est incorrect."
-            ], 401);
+            ], 500);
         }
 
         // ✅ Mise à jour
