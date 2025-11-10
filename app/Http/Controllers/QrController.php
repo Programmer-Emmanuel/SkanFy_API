@@ -85,15 +85,42 @@ class QrController extends Controller
                 'id_objet' => null,
                 'id_user' => null,
             ]);
+            // 🔗 Ton lien unique
+$link_id = "https://skanfy.com/{$qr->id}";
 
-            // 🔗 Lien unique
-            $link_id = "https://skanfy.com/{$qr->id}";
+// 📸 Ton logo (dans storage)
+$logoPath = public_path('storage/images/image.jpg');
 
-            // 🌀 Génération du QR en SVG
-            $qrSvg = QrCode::format('svg')->size(300)->generate($link_id);
+// 🔄 Vérifie que l’image existe
+if (!file_exists($logoPath)) {
+    dd("Logo introuvable : " . $logoPath);
+}
 
-            // ✅ Conversion en base64 pour la BDD
-            $qrBase64 = base64_encode($qrSvg);
+// 🌀 Génération du QR en SVG simple
+$qrSvg = QrCode::format('svg')
+    ->size(300)
+    ->generate($link_id);
+
+// 🧠 Convertir le logo en base64 (pour l'injecter dans le SVG)
+$logoBase64 = base64_encode(file_get_contents($logoPath));
+
+// ⚙️ Taille et position du logo dans le SVG
+$logoSize = 70; // largeur et hauteur du logo
+$qrSize = 300;
+$x = ($qrSize - $logoSize) / 2;
+$y = ($qrSize - $logoSize) / 2;
+
+// 🖼️ Ajouter le logo (avec contour blanc arrondi)
+$logoSvg = "
+    <rect x='$x' y='$y' width='$logoSize' height='$logoSize' rx='15' ry='15' fill='white'/>
+    <image href='data:image/jpeg;base64,$logoBase64' x='$x' y='$y' width='$logoSize' height='$logoSize' clip-path='url(#rounded)'/>
+";
+
+// 💬 Injecter le logo dans le SVG
+$qrSvgWithLogo = str_replace('</svg>', $logoSvg . '</svg>', $qrSvg);
+
+// ✅ Base64 final à enregistrer ou afficher
+$qrBase64 = base64_encode($qrSvgWithLogo);
 
             // ✅ Sauvegarder la version SVG dans la base
             $qr->update([
@@ -460,11 +487,11 @@ private function formatCommeInscription($qr, $request = null)
             "email_user" => $qr->user->email_user,
             "tel_user" => $qr->user->tel_user ? [
                 'value' => $qr->user->tel_user,
-                'is_whatsapp' => $qr->user->is_whatsapp_un
+                'is_whatsapp' => $qr->user->is_whatsapp_un ?? 0
             ] : null,
             "autre_tel" => $qr->user->autre_tel ? [
                 'value' => $qr->user->autre_tel,
-                'is_whatsapp' => $qr->user->is_whatsapp_deux
+                'is_whatsapp' => $qr->user->is_whatsapp_deux ?? 0
             ] : null,
             "image_profil" => $qr->user->image_profil
         ] : null,
