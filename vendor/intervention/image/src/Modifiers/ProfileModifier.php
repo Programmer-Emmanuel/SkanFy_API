@@ -11,6 +11,5 @@ class ProfileModifier extends SpecializableModifier
 {
     public function __construct(public ProfileInterface $profile)
     {
-        //
     }
 }

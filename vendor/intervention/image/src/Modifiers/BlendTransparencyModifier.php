@@ -19,6 +19,7 @@ class BlendTransparencyModifier extends SpecializableModifier
     /**
      * Create new modifier object
      *
+     * @param mixed $color
      * @return void
      */
     public function __construct(public mixed $color = null)
@@ -32,6 +33,7 @@ class BlendTransparencyModifier extends SpecializableModifier
      *
      * @throws RuntimeException
      * @throws ColorException
+     * @return ColorInterface
      */
     protected function blendingColor(DriverInterface $driver): ColorInterface
     {

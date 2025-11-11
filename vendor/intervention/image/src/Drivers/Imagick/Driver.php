@@ -36,7 +36,6 @@ class Driver extends AbstractDriver
      * {@inheritdoc}
      *
      * @see DriverInterface::checkHealth()
-     *
      * @codeCoverageIgnore
      */
     public function checkHealth(): void
@@ -71,9 +70,8 @@ class Driver extends AbstractDriver
     /**
      * {@inheritdoc}
      *
-     * @see DriverInterface::createAnimation()
-     *
      * @throws RuntimeException
+     * @see DriverInterface::createAnimation()
      */
     public function createAnimation(callable $init): ImageInterface
     {
@@ -159,6 +157,7 @@ class Driver extends AbstractDriver
      * Return version of ImageMagick library
      *
      * @throws DriverException
+     * @return string
      */
     public static function version(): string
     {

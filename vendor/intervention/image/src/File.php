@@ -33,7 +33,9 @@ class File implements FileInterface, Stringable
     /**
      * Create file object from path in file system
      *
+     * @param string $path
      * @throws RuntimeException
+     * @return File
      */
     public static function fromPath(string $path): self
     {
@@ -68,7 +70,7 @@ class File implements FileInterface, Stringable
         }
 
         // write data
-        $saved = @file_put_contents($filepath, $this->toFilePointer());
+        $saved = @file_put_contents($filepath, $this->pointer);
         if ($saved === false) {
             throw new NotWritableException(
                 sprintf("Can't write image data to path (%s).", $filepath)
@@ -79,17 +81,17 @@ class File implements FileInterface, Stringable
     /**
      * {@inheritdoc}
      *
-     * @see FileInterface::toString()
+     * @see FilterInterface::toString()
      */
     public function toString(): string
     {
-        return stream_get_contents($this->toFilePointer(), offset: 0);
+        return stream_get_contents($this->pointer, offset: 0);
     }
 
     /**
      * {@inheritdoc}
      *
-     * @see FileInterface::toFilePointer()
+     * @see FilterInterface::toFilePointer()
      */
     public function toFilePointer()
     {
@@ -105,7 +107,7 @@ class File implements FileInterface, Stringable
      */
     public function size(): int
     {
-        $info = fstat($this->toFilePointer());
+        $info = fstat($this->pointer);
 
         return intval($info['size']);
     }

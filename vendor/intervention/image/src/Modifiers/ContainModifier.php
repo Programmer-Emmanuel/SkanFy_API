@@ -18,7 +18,6 @@ class ContainModifier extends SpecializableModifier
         public mixed $background = 'ffffff',
         public string $position = 'center'
     ) {
-        //
     }
 
     /**

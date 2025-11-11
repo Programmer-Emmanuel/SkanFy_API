@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Intervention\Image;
 
-use Error;
-use Intervention\Image\Exceptions\NotSupportedException;
-
 enum FileExtension: string
 {
     case JPG = 'jpg';
@@ -31,55 +28,9 @@ enum FileExtension: string
     case HEIF = 'heif';
 
     /**
-     * Create file extension from given identifier
-     *
-     * @param string|Format|MediaType|FileExtension $identifier
-     * @throws NotSupportedException
-     */
-    public static function create(string|self|Format|MediaType $identifier): self
-    {
-        if ($identifier instanceof self) {
-            return $identifier;
-        }
-
-        if ($identifier instanceof Format) {
-            return $identifier->fileExtension();
-        }
-
-        if ($identifier instanceof MediaType) {
-            return $identifier->fileExtension();
-        }
-
-        try {
-            $extension = self::from(strtolower($identifier));
-        } catch (Error) {
-            try {
-                $extension = MediaType::from(strtolower($identifier))->fileExtension();
-            } catch (Error) {
-                throw new NotSupportedException('Unable to create file extension from "' . $identifier . '".');
-            }
-        }
-
-        return $extension;
-    }
-
-    /**
-     * Try to create media type from given identifier and return null on failure
-     *
-     * @param string|Format|MediaType|FileExtension $identifier
-     * @return FileExtension|null
-     */
-    public static function tryCreate(string|self|Format|MediaType $identifier): ?self
-    {
-        try {
-            return self::create($identifier);
-        } catch (NotSupportedException) {
-            return null;
-        }
-    }
-
-    /**
      * Return the matching format for the current file extension
+     *
+     * @return Format
      */
     public function format(): Format
     {
@@ -119,6 +70,8 @@ enum FileExtension: string
 
     /**
      * Return the first found media type for the current format
+     *
+     * @return MediaType
      */
     public function mediaType(): MediaType
     {

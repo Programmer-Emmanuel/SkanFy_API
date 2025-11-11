@@ -11,6 +11,7 @@ class WebpEncoder extends SpecializableEncoder
     /**
      * Create new encoder object
      *
+     * @param int $quality
      * @param null|bool $strip Strip EXIF metadata
      * @return void
      */
@@ -18,6 +19,5 @@ class WebpEncoder extends SpecializableEncoder
         public int $quality = self::DEFAULT_QUALITY,
         public ?bool $strip = null
     ) {
-        //
     }
 }

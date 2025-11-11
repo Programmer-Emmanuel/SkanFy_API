@@ -11,6 +11,9 @@ class ColorizeModifier extends SpecializableModifier
     /**
      * Create new modifier object
      *
+     * @param int $red
+     * @param int $green
+     * @param int $blue
      * @return void
      */
     public function __construct(
@@ -18,6 +21,5 @@ class ColorizeModifier extends SpecializableModifier
         public int $green = 0,
         public int $blue = 0
     ) {
-        //
     }
 }

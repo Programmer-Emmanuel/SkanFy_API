@@ -18,6 +18,8 @@ class EllipseFactory implements DrawableFactoryInterface
     /**
      * Create new factory instance
      *
+     * @param PointInterface $pivot
+     * @param null|Closure|Ellipse $init
      * @return void
      */
     public function __construct(
@@ -54,6 +56,10 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Set the size of the ellipse to be produced
+     *
+     * @param int $width
+     * @param int $height
+     * @return EllipseFactory
      */
     public function size(int $width, int $height): self
     {
@@ -64,6 +70,9 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Set the width of the ellipse to be produced
+     *
+     * @param int $width
+     * @return EllipseFactory
      */
     public function width(int $width): self
     {
@@ -74,6 +83,9 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Set the height of the ellipse to be produced
+     *
+     * @param int $height
+     * @return EllipseFactory
      */
     public function height(int $height): self
     {
@@ -84,6 +96,9 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Set the background color of the ellipse to be produced
+     *
+     * @param mixed $color
+     * @return EllipseFactory
      */
     public function background(mixed $color): self
     {
@@ -94,6 +109,10 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Set the border color & border size of the ellipse to be produced
+     *
+     * @param mixed $color
+     * @param int $size
+     * @return EllipseFactory
      */
     public function border(mixed $color, int $size = 1): self
     {
@@ -104,6 +123,8 @@ class EllipseFactory implements DrawableFactoryInterface
 
     /**
      * Produce the ellipse
+     *
+     * @return Ellipse
      */
     public function __invoke(): Ellipse
     {

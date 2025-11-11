@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableDecoder;
 
 class NativeObjectDecoder extends SpecializableDecoder
 {
-    //
 }

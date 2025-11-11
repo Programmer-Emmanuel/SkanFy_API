@@ -8,15 +8,14 @@ use RuntimeException;
 use Intervention\Image\Exceptions\GeometryException;
 use Intervention\Image\Interfaces\ImageInterface;
 use Intervention\Image\Interfaces\SpecializedInterface;
-use Intervention\Image\Modifiers\DrawBezierModifier as GenericDrawBezierModifier;
+use Intervention\Image\Modifiers\DrawBezierModifier as ModifiersDrawBezierModifier;
 
-class DrawBezierModifier extends GenericDrawBezierModifier implements SpecializedInterface
+class DrawBezierModifier extends ModifiersDrawBezierModifier implements SpecializedInterface
 {
     /**
      * {@inheritdoc}
      *
      * @see ModifierInterface::apply()
-     *
      * @throws RuntimeException
      * @throws GeometryException
      */
@@ -60,7 +59,7 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
                         if (array_key_exists($i + 2, $polygon) && array_key_exists($i + 3, $polygon)) {
                             imageline(
                                 $frame->native(),
-                                $polygon[$i],
+                                $polygon[$i + 0],
                                 $polygon[$i + 1],
                                 $polygon[$i + 2],
                                 $polygon[$i + 3],
@@ -88,6 +87,7 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
     /**
      * Calculate interpolation points for quadratic beziers using the Bernstein polynomial form
      *
+     * @param float $t
      * @return array{'x': float, 'y': float}
      */
     private function calculateQuadraticBezierInterpolationPoint(float $t = 0.05): array
@@ -114,6 +114,7 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
     /**
      * Calculate interpolation points for cubic beziers using the Bernstein polynomial form
      *
+     * @param float $t
      * @return array{'x': float, 'y': float}
      */
     private function calculateCubicBezierInterpolationPoint(float $t = 0.05): array
@@ -194,7 +195,7 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
                     $ox = -$dy * $scale;
                     $oy = $dx * $scale;
 
-                    $inner_polygon[] = $ox + $polygon[$i];
+                    $inner_polygon[] = $ox + $polygon[$i + 0];
                     $inner_polygon[] = $oy + $polygon[$i + 1];
                     $inner_polygon[] = $ox + $polygon[$i + 2];
                     $inner_polygon[] = $oy + $polygon[$i + 3];
@@ -204,7 +205,7 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
                     $ox = -$dy * $scale;
                     $oy = $dx * $scale;
 
-                    $outer_polygon[] = $ox + $polygon[$i];
+                    $outer_polygon[] = $ox + $polygon[$i + 0];
                     $outer_polygon[] = $oy + $polygon[$i + 1];
                     $outer_polygon[] = $ox + $polygon[$i + 2];
                     $outer_polygon[] = $oy + $polygon[$i + 3];
@@ -216,9 +217,9 @@ class DrawBezierModifier extends GenericDrawBezierModifier implements Specialize
             for ($i = 0; $i < $inner_polygon_total_points; $i += 2) {
                 if (array_key_exists($i + 2, $inner_polygon) && array_key_exists($i + 3, $inner_polygon)) {
                     $polygon_border_segments[] = [
-                        $inner_polygon[$i],
+                        $inner_polygon[$i + 0],
                         $inner_polygon[$i + 1],
-                        $outer_polygon[$i],
+                        $outer_polygon[$i + 0],
                         $outer_polygon[$i + 1],
                         $outer_polygon[$i + 2],
                         $outer_polygon[$i + 3],

@@ -30,6 +30,8 @@ abstract class AbstractColorChannel implements ColorChannelInterface, Stringable
 
     /**
      * Alias of value()
+     *
+     * @return int
      */
     public function toInt(): int
     {

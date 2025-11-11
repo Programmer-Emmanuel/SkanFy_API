@@ -14,6 +14,8 @@ abstract class AbstractDrawModifier extends SpecializableModifier
 {
     /**
      * Return the drawable object which will be rendered by the modifier
+     *
+     * @return DrawableInterface
      */
     abstract public function drawable(): DrawableInterface;
 

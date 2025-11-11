@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableModifier;
 
 class GreyscaleModifier extends SpecializableModifier
 {
-    //
 }

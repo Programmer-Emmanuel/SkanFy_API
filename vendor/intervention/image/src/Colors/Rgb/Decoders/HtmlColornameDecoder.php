@@ -160,6 +160,9 @@ class HtmlColornameDecoder extends HexColorDecoder implements DecoderInterface
 
     /**
      * Decode html color names
+     *
+     * @param mixed $input
+     * @return ImageInterface|ColorInterface
      */
     public function decode(mixed $input): ImageInterface|ColorInterface
     {

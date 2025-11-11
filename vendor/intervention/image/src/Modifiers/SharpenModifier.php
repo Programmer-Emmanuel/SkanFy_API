@@ -10,6 +10,5 @@ class SharpenModifier extends SpecializableModifier
 {
     public function __construct(public int $amount)
     {
-        //
     }
 }

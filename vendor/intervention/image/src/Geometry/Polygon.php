@@ -27,13 +27,13 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
      * Create new polygon instance
      *
      * @param array<PointInterface> $points
+     * @param PointInterface $pivot
      * @return void
      */
     public function __construct(
         protected array $points = [],
         protected PointInterface $pivot = new Point()
     ) {
-        //
     }
 
     /**
@@ -70,6 +70,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return current pivot point
+     *
+     * @return PointInterface
      */
     public function pivot(): PointInterface
     {
@@ -78,6 +80,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Change pivot point to given point
+     *
+     * @param PointInterface $pivot
+     * @return Polygon
      */
     public function setPivot(PointInterface $pivot): self
     {
@@ -88,6 +93,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return first point of polygon
+     *
+     * @return ?PointInterface
      */
     public function first(): ?PointInterface
     {
@@ -100,6 +107,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return last point of polygon
+     *
+     * @return ?PointInterface
      */
     public function last(): ?PointInterface
     {
@@ -112,6 +121,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return polygon's point count
+     *
+     * @return int
      */
     public function count(): int
     {
@@ -120,38 +131,54 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Determine if point exists at given offset
+     *
+     * @param mixed $offset
+     * @return bool
      */
-    public function offsetExists(mixed $offset): bool
+    public function offsetExists($offset): bool
     {
         return array_key_exists($offset, $this->points);
     }
 
     /**
      * Return point at given offset
+     *
+     * @param mixed $offset
+     * @return PointInterface
      */
-    public function offsetGet(mixed $offset): mixed
+    public function offsetGet($offset): mixed
     {
         return $this->points[$offset];
     }
 
     /**
      * Set point at given offset
+     *
+     * @param mixed $offset
+     * @param PointInterface $value
+     * @return void
      */
-    public function offsetSet(mixed $offset, mixed $value): void
+    public function offsetSet($offset, $value): void
     {
         $this->points[$offset] = $value;
     }
 
     /**
      * Unset offset at given offset
+     *
+     * @param mixed $offset
+     * @return void
      */
-    public function offsetUnset(mixed $offset): void
+    public function offsetUnset($offset): void
     {
         unset($this->points[$offset]);
     }
 
     /**
      * Add given point to polygon
+     *
+     * @param PointInterface $point
+     * @return Polygon
      */
     public function addPoint(PointInterface $point): self
     {
@@ -162,6 +189,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Calculate total horizontal span of polygon
+     *
+     * @return int
      */
     public function width(): int
     {
@@ -170,6 +199,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Calculate total vertical span of polygon
+     *
+     * @return int
      */
     public function height(): int
     {
@@ -178,6 +209,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return most left point of all points in polygon
+     *
+     * @return PointInterface
      */
     public function mostLeftPoint(): PointInterface
     {
@@ -195,6 +228,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return most right point in polygon
+     *
+     * @return PointInterface
      */
     public function mostRightPoint(): PointInterface
     {
@@ -212,6 +247,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return most top point in polygon
+     *
+     * @return PointInterface
      */
     public function mostTopPoint(): PointInterface
     {
@@ -229,6 +266,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return most bottom point in polygon
+     *
+     * @return PointInterface
      */
     public function mostBottomPoint(): PointInterface
     {
@@ -246,6 +285,8 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Return point in absolute center of the polygon
+     *
+     * @return PointInterface
      */
     public function centerPoint(): PointInterface
     {
@@ -257,6 +298,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Align all points of polygon horizontally to given position around pivot point
+     *
+     * @param string $position
+     * @return Polygon
      */
     public function align(string $position): self
     {
@@ -287,6 +331,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Align all points of polygon vertically to given position around pivot point
+     *
+     * @param string $position
+     * @return Polygon
      */
     public function valign(string $position): self
     {
@@ -317,6 +364,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Rotate points of polygon around pivot point with given angle
+     *
+     * @param float $angle
+     * @return Polygon
      */
     public function rotate(float $angle): self
     {
@@ -350,6 +400,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Move all points by given amount on the x-axis
+     *
+     * @param int $amount
+     * @return Polygon
      */
     public function movePointsX(int $amount): self
     {
@@ -362,6 +415,9 @@ class Polygon implements IteratorAggregate, Countable, ArrayAccess, DrawableInte
 
     /**
      * Move all points by given amount on the y-axis
+     *
+     * @param int $amount
+     * @return Polygon
      */
     public function movePointsY(int $amount): self
     {

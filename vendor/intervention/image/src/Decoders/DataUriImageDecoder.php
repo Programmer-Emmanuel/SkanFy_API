@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableDecoder;
 
 class DataUriImageDecoder extends SpecializableDecoder
 {
-    //
 }

@@ -21,6 +21,7 @@ class Frame extends AbstractFrame implements FrameInterface
     /**
      * Create new frame object
      *
+     * @param Imagick $native
      * @throws ImagickException
      * @return void
      */
@@ -46,7 +47,7 @@ class Frame extends AbstractFrame implements FrameInterface
      *
      * @see DriverInterface::setNative()
      */
-    public function setNative(mixed $native): FrameInterface
+    public function setNative($native): FrameInterface
     {
         $this->native = $native;
 
@@ -112,7 +113,6 @@ class Frame extends AbstractFrame implements FrameInterface
      * {@inheritdoc}
      *
      * @see DriverInterface::setDispose()
-     *
      * @throws InputException
      */
     public function setDispose(int $dispose): FrameInterface

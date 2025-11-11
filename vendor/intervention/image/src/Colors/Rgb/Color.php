@@ -19,6 +19,10 @@ class Color extends AbstractColor
     /**
      * Create new instance
      *
+     * @param int $r
+     * @param int $g
+     * @param int $b
+     * @param int $a
      * @return ColorInterface
      */
     public function __construct(int $r, int $g, int $b, int $a = 255)
@@ -59,6 +63,8 @@ class Color extends AbstractColor
 
     /**
      * Return the RGB red color channel
+     *
+     * @return ColorChannelInterface
      */
     public function red(): ColorChannelInterface
     {
@@ -68,6 +74,8 @@ class Color extends AbstractColor
 
     /**
      * Return the RGB green color channel
+     *
+     * @return ColorChannelInterface
      */
     public function green(): ColorChannelInterface
     {
@@ -77,6 +85,8 @@ class Color extends AbstractColor
 
     /**
      * Return the RGB blue color channel
+     *
+     * @return ColorChannelInterface
      */
     public function blue(): ColorChannelInterface
     {
@@ -86,6 +96,8 @@ class Color extends AbstractColor
 
     /**
      * Return the colors alpha channel
+     *
+     * @return ColorChannelInterface
      */
     public function alpha(): ColorChannelInterface
     {

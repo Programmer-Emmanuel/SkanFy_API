@@ -20,6 +20,7 @@ class ColorProcessor implements ColorProcessorInterface
     /**
      * Create new color processor object
      *
+     * @param ColorspaceInterface $colorspace
      * @return void
      */
     public function __construct(protected ColorspaceInterface $colorspace = new Colorspace())
@@ -91,6 +92,13 @@ class ColorProcessor implements ColorProcessorInterface
     /**
      * Convert input in range (min) to (max) to the corresponding value
      * in target range (targetMin) to (targetMax).
+     *
+     * @param float|int $input
+     * @param float|int $min
+     * @param float|int $max
+     * @param float|int $targetMin
+     * @param float|int $targetMax
+     * @return float|int
      */
     protected function convertRange(
         float|int $input,
@@ -108,6 +116,7 @@ class ColorProcessor implements ColorProcessorInterface
      * i.e. result of imagecolorsforindex()
      *
      * @param array<mixed> $color
+     * @return bool
      */
     private function isValidArrayColor(array $color): bool
     {

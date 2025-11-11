@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableDecoder;
 
 class BinaryImageDecoder extends SpecializableDecoder
 {
-    //
 }

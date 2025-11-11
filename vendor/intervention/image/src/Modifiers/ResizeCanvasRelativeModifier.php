@@ -6,5 +6,4 @@ namespace Intervention\Image\Modifiers;
 
 class ResizeCanvasRelativeModifier extends ResizeCanvasModifier
 {
-    //
 }

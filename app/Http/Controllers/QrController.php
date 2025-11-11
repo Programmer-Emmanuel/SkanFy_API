@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use ZipArchive;
-use Intervention\Image\Facades\Image;
+use Intervention\Image\Laravel\Facades\Image;
 
 class QrController extends Controller
 {
@@ -851,7 +851,7 @@ public function downloadZip($id)
     }
 
     // 📸 Logo à insérer au centre
-    $logoPath = public_path('storage/images/logo.png'); // <-- mets ton logo ici
+    $logoPath = public_path('storage/images/image.jpg'); // <-- mets ton logo ici
     if (!file_exists($logoPath)) {
         return response()->json([
             'success' => false,

@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableAnalyzer;
 
 class ProfileAnalyzer extends SpecializableAnalyzer
 {
-    //
 }

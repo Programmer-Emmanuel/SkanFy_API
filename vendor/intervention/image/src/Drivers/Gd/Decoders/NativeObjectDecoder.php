@@ -54,7 +54,9 @@ class NativeObjectDecoder extends AbstractDecoder
      * Depending on the configuration, this is taken over by the native GD function
      * or, if animations are required, by our own extended decoder.
      *
+     * @param mixed $input
      * @throws RuntimeException
+     * @return ImageInterface
      */
     protected function decodeGif(mixed $input): ImageInterface
     {

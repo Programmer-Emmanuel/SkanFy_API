@@ -20,6 +20,10 @@ class Color extends AbstractColor
     /**
      * Create new instance
      *
+     * @param int $c
+     * @param int $m
+     * @param int $y
+     * @param int $k
      * @return void
      */
     public function __construct(int $c, int $m, int $y, int $k)
@@ -67,6 +71,8 @@ class Color extends AbstractColor
 
     /**
      * Return the CMYK cyan channel
+     *
+     * @return ColorChannelInterface
      */
     public function cyan(): ColorChannelInterface
     {
@@ -76,6 +82,8 @@ class Color extends AbstractColor
 
     /**
      * Return the CMYK magenta channel
+     *
+     * @return ColorChannelInterface
      */
     public function magenta(): ColorChannelInterface
     {
@@ -85,6 +93,8 @@ class Color extends AbstractColor
 
     /**
      * Return the CMYK yellow channel
+     *
+     * @return ColorChannelInterface
      */
     public function yellow(): ColorChannelInterface
     {
@@ -94,6 +104,8 @@ class Color extends AbstractColor
 
     /**
      * Return the CMYK key channel
+     *
+     * @return ColorChannelInterface
      */
     public function key(): ColorChannelInterface
     {

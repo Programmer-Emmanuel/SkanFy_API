@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableModifier;
 
 class AlignRotationModifier extends SpecializableModifier
 {
-    //
 }

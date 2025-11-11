@@ -6,5 +6,4 @@ namespace Intervention\Image\Exceptions;
 
 class DriverException extends RuntimeException
 {
-    //
 }

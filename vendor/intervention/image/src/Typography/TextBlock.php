@@ -11,6 +11,7 @@ class TextBlock extends Collection
     /**
      * Create new text block object
      *
+     * @param string $text
      * @return void
      */
     public function __construct(string $text)
@@ -34,6 +35,7 @@ class TextBlock extends Collection
      * Set lines of the text block
      *
      * @param array<Line> $lines
+     * @return self
      */
     public function setLines(array $lines): self
     {
@@ -44,8 +46,11 @@ class TextBlock extends Collection
 
     /**
      * Get line by given key
+     *
+     * @param mixed $key
+     * @return null|Line
      */
-    public function line(mixed $key): ?Line
+    public function line($key): ?Line
     {
         if (!array_key_exists($key, $this->lines())) {
             return null;
@@ -56,6 +61,8 @@ class TextBlock extends Collection
 
     /**
      * Return line with most characters of text block
+     *
+     * @return Line
      */
     public function longestLine(): Line
     {

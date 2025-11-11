@@ -11,6 +11,9 @@ class Pixel extends Point
     /**
      * Create new pixel instance
      *
+     * @param ColorInterface $background
+     * @param int $x
+     * @param int $y
      * @return void
      */
     public function __construct(
@@ -18,7 +21,6 @@ class Pixel extends Point
         protected int $x,
         protected int $y
     ) {
-        //
     }
 
     /**

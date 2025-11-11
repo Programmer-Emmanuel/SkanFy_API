@@ -15,7 +15,6 @@ class DrawPolygonModifier extends ModifiersDrawPolygonModifier implements Specia
      * {@inheritdoc}
      *
      * @see ModifierInterface::apply()
-     *
      * @throws RuntimeException
      */
     public function apply(ImageInterface $image): ImageInterface

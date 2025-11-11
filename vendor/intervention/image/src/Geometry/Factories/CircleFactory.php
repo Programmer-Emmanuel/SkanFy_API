@@ -18,6 +18,8 @@ class CircleFactory implements DrawableFactoryInterface
     /**
      * Create new factory instance
      *
+     * @param PointInterface $pivot
+     * @param null|Closure|Circle $init
      * @return void
      */
     public function __construct(
@@ -54,6 +56,9 @@ class CircleFactory implements DrawableFactoryInterface
 
     /**
      * Set the radius of the circle to be produced
+     *
+     * @param int $radius
+     * @return CircleFactory
      */
     public function radius(int $radius): self
     {
@@ -64,6 +69,9 @@ class CircleFactory implements DrawableFactoryInterface
 
     /**
      * Set the diameter of the circle to be produced
+     *
+     * @param int $diameter
+     * @return CircleFactory
      */
     public function diameter(int $diameter): self
     {
@@ -74,6 +82,9 @@ class CircleFactory implements DrawableFactoryInterface
 
     /**
      * Set the background color of the circle to be produced
+     *
+     * @param mixed $color
+     * @return CircleFactory
      */
     public function background(mixed $color): self
     {
@@ -84,6 +95,10 @@ class CircleFactory implements DrawableFactoryInterface
 
     /**
      * Set the border color & border size of the ellipse to be produced
+     *
+     * @param mixed $color
+     * @param int $size
+     * @return CircleFactory
      */
     public function border(mixed $color, int $size = 1): self
     {
@@ -94,6 +109,8 @@ class CircleFactory implements DrawableFactoryInterface
 
     /**
      * Produce the circle
+     *
+     * @return Circle
      */
     public function __invoke(): Circle
     {

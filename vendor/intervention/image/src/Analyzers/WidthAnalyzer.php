@@ -8,5 +8,4 @@ use Intervention\Image\Drivers\SpecializableAnalyzer;
 
 class WidthAnalyzer extends SpecializableAnalyzer
 {
-    //
 }

@@ -77,21 +77,13 @@ abstract class AbstractDriver implements DriverInterface
         }
 
         // resolve classname for specializable object
-        $specialized_classname = implode("\\", [
-            (new ReflectionClass($this))->getNamespaceName(), // driver's namespace
-            match (true) {
-                $object instanceof ModifierInterface => 'Modifiers',
-                $object instanceof AnalyzerInterface => 'Analyzers',
-                $object instanceof EncoderInterface => 'Encoders',
-                $object instanceof DecoderInterface => 'Decoders',
-            },
-            $object_shortname = (new ReflectionClass($object))->getShortName(),
-        ]);
+        $driver_namespace = (new ReflectionClass($this))->getNamespaceName();
+        $object_path = substr($object::class, strlen("Intervention\\Image\\"));
+        $specialized_classname = $driver_namespace . "\\" . $object_path;
 
-        // fail if driver specialized classname does not exists
         if (!class_exists($specialized_classname)) {
             throw new NotSupportedException(
-                "Class '" . $object_shortname . "' is not supported by " . $this->id() . " driver."
+                "Class '" . $object_path . "' is not supported by " . $this->id() . " driver."
             );
         }
 
@@ -105,10 +97,9 @@ abstract class AbstractDriver implements DriverInterface
     /**
      * {@inheritdoc}
      *
-     * @see DriverInterface::specializeMultiple()
-     *
      * @throws NotSupportedException
      * @throws DriverException
+     * @see DriverInterface::specializeMultiple()
      */
     public function specializeMultiple(array $objects): array
     {

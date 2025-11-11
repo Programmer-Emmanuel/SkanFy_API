@@ -14,6 +14,11 @@ class PlaceModifier extends SpecializableModifier
     /**
      * Create new modifier object
      *
+     * @param mixed $element
+     * @param string $position
+     * @param int $offset_x
+     * @param int $offset_y
+     * @param int $opacity
      * @return void
      */
     public function __construct(
@@ -23,7 +28,6 @@ class PlaceModifier extends SpecializableModifier
         public int $offset_y = 0,
         public int $opacity = 100
     ) {
-        //
     }
 
     /**

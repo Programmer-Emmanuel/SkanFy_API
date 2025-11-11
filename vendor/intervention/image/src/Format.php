@@ -36,6 +36,7 @@ enum Format
      *
      * @param string|Format|MediaType|FileExtension $identifier
      * @throws NotSupportedException
+     * @return Format
      */
     public static function create(string|self|MediaType|FileExtension $identifier): self
     {
@@ -94,6 +95,8 @@ enum Format
 
     /**
      * Return the first found media type for the current format
+     *
+     * @return MediaType
      */
     public function mediaType(): MediaType
     {
@@ -117,6 +120,8 @@ enum Format
 
     /**
      * Return the first found file extension for the current format
+     *
+     * @return FileExtension
      */
     public function fileExtension(): FileExtension
     {
@@ -127,6 +132,9 @@ enum Format
 
     /**
      * Create an encoder instance with given options that matches the format
+     *
+     * @param mixed $options
+     * @return EncoderInterface
      */
     public function encoder(mixed ...$options): EncoderInterface
     {

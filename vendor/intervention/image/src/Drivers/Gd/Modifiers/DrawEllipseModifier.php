@@ -15,7 +15,6 @@ class DrawEllipseModifier extends GenericDrawEllipseModifier implements Speciali
      * {@inheritdoc}
      *
      * @see ModifierInterface::apply()
-     *
      * @throws RuntimeException
      */
     public function apply(ImageInterface $image): ImageInterface
