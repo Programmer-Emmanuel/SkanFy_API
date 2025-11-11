@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use ZipArchive;
+use Intervention\Image\Facades\Image;
 
 class QrController extends Controller
 {
@@ -803,50 +804,94 @@ public function historique_occasion()
 }
 
 
-    public function downloadZip($id)
-    {
-        $occasion = Occasion::find($id);
 
-        if (!$occasion) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Occasion introuvable.',
-            ], 404);
-        }
+public function downloadZip($id)
+{
+    $occasion = Occasion::find($id);
 
-        $folderPath = storage_path("app/occasions/{$occasion->nom_occasion}");
-
-        if (!File::exists($folderPath)) {
-            return response()->json([
-                'success' => false,
-                'message' => "Aucun QR trouvé pour cette occasion.",
-            ], 404);
-        }
-
-        $zipFileName = "{$occasion->nom_occasion}.zip";
-        $zipFilePath = storage_path("app/occasions/{$zipFileName}");
-
-        // Supprimer ancien ZIP s’il existe
-        if (File::exists($zipFilePath)) {
-            File::delete($zipFilePath);
-        }
-
-        // Création du ZIP
-        $zip = new ZipArchive();
-        if ($zip->open($zipFilePath, ZipArchive::CREATE) === TRUE) {
-            $files = File::files($folderPath);
-            foreach ($files as $file) {
-                $zip->addFile($file, basename($file));
-            }
-            $zip->close();
-        } else {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la création du fichier ZIP.',
-            ], 500);
-        }
-
-        // Téléchargement du ZIP
-        return response()->download($zipFilePath)->deleteFileAfterSend(true);
+    if (!$occasion) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Occasion introuvable.',
+        ], 404);
     }
+
+    // 📦 Chemin du dossier temporaire
+    $tmpFolder = storage_path("app/tmp_qr_png");
+    if (!File::exists($tmpFolder)) {
+        File::makeDirectory($tmpFolder, 0777, true, true);
+    }
+
+    // 📦 Nom et chemin du ZIP
+    $zipFileName = "{$occasion->nom_occasion}.zip";
+    $zipFilePath = storage_path("app/occasions/{$zipFileName}");
+
+    // 🧹 Supprimer ancien ZIP s’il existe
+    if (File::exists($zipFilePath)) {
+        File::delete($zipFilePath);
+    }
+
+    // ⚙️ Créer le ZIP
+    $zip = new ZipArchive();
+    if ($zip->open($zipFilePath, ZipArchive::CREATE) !== TRUE) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la création du fichier ZIP.',
+        ], 500);
+    }
+
+    // 🧠 Récupérer tous les QR liés à cette occasion
+    $qrs = Qr::where('id_occasion', $occasion->id)->get();
+
+    if ($qrs->isEmpty()) {
+        return response()->json([
+            'success' => false,
+            'message' => "Aucun QR trouvé pour cette occasion.",
+        ], 404);
+    }
+
+    // 📸 Logo à insérer au centre
+    $logoPath = public_path('storage/images/logo.png'); // <-- mets ton logo ici
+    if (!file_exists($logoPath)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Logo introuvable.',
+        ], 404);
+    }
+
+    // 🔁 Générer les QR + ajouter le logo
+    foreach ($qrs as $qr) {
+        $fileName = "{$qr->id}.png";
+        $pngPath = "{$tmpFolder}/{$fileName}";
+
+        // 🔗 Contenu du QR
+        $url = "https://skanfy.com/{$qr->id}";
+
+        // Génération du QR code
+        $qrImage = QrCode::format('png')
+            ->size(600)
+            ->margin(2)
+            ->errorCorrection('H')
+            ->generate($url);
+
+        // Création image QR
+        $qrPng = Image::make($qrImage);
+
+        // Intégration du logo centré
+        $logo = Image::make($logoPath)->resize(100, 100);
+        $qrPng->insert($logo, 'center');
+
+        // Sauvegarde en PNG
+        $qrPng->save($pngPath);
+
+        // Ajout dans le ZIP
+        $zip->addFile($pngPath, $fileName);
+    }
+
+    $zip->close();
+
+    // 📦 Téléchargement du ZIP
+    return response()->download($zipFilePath)->deleteFileAfterSend(true);
+}
+
 }

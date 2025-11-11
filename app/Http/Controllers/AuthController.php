@@ -971,7 +971,7 @@ public function liste_admin(Request $request)
     if ($admin->type_account != 2) {
         return response()->json([
             'success' => false,
-            'message' => 'Vous n’êtes pas autorisé à afficher la liste des admins.'
+            'message' => 'Vous n’êtes pas autorisé à afficher la liste des sous-administrateurs.'
         ], 403);
     }
 
@@ -979,58 +979,36 @@ public function liste_admin(Request $request)
         $liste = Admin::where('type_account', 1)->get();
 
         $data = $liste->map(function ($item) {
-            // 🔹 Recalcul du mot de passe si l’admin n’a jamais été modifié
-            if ($item->created_at->equalTo($item->updated_at)) {
-                $nom = preg_replace('/\s+/', '', $item->nom_admin);
-                $partNom = Str::substr(Str::lower($nom), 0, 3);
-                if (Str::length($partNom) < 3) {
-                    $partNom = Str::padRight($partNom, 3, 'x');
-                }
-
-                $telDigits = preg_replace('/\D/', '', $item->tel_admin);
-                $partTel = substr($telDigits, 0, 2);
-                if (strlen($partTel) < 2) {
-                    $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
-                }
-
-                $rawPassword = $partNom . $partTel . 'admin';
-                $password = $rawPassword;
-                $is_update = false;
-            } else {
-                $nom = preg_replace('/\s+/', '', $item->nom_admin);
-                $partNom = Str::substr(Str::lower($nom), 0, 3);
-                if (Str::length($partNom) < 3) {
-                    $partNom = Str::padRight($partNom, 3, 'x');
-                }
-
-                $telDigits = preg_replace('/\D/', '', $item->tel_admin);
-                $partTel = substr($telDigits, 0, 2);
-                if (strlen($partTel) < 2) {
-                    $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
-                }
-
-                $rawPassword = $partNom . $partTel . 'admin';
-                $password = $rawPassword;
-                $is_update = true;
+            // 🔹 Recalcul du mot de passe par défaut
+            $nom = preg_replace('/\s+/', '', $item->nom_admin);
+            $partNom = Str::substr(Str::lower($nom), 0, 3);
+            if (Str::length($partNom) < 3) {
+                $partNom = Str::padRight($partNom, 3, 'x');
             }
 
-            // 🔸 Structure identique à celle des users
+            $telDigits = preg_replace('/\D/', '', $item->tel_admin);
+            $partTel = substr($telDigits, 0, 2);
+            if (strlen($partTel) < 2) {
+                $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+            }
+
+            $rawPassword = $partNom . $partTel . 'admin';
+
+            // 🔸 Vérifie si le mot de passe est encore celui par défaut
+            $isDefault = Hash::check($rawPassword, $item->password_admin);
+
             return [
                 'id' => $item->id,
                 'nom' => $item->nom_admin,
+                'email_user' => $item->email_admin,
                 'tel_user' => [
                     'value' => $item->tel_admin,
-                    'is_whatsapp' => (int) $item->is_whatsapp_un ?? 0,
+                    'is_whatsapp' => (int) ($item->is_whatsapp ?? 0),
                 ],
                 'image_profil' => $item->image_profil ? url('storage/' . $item->image_profil) : null,
-                'email_user' => $item->email_admin,
-                'isDefaultPasswordUpdated' => $is_update,
-                'defaultPassword' => $password,
-                'otp' => $item->otp,
-                'otp_expire_at' => $item->otp_expire_at,
-                'is_verify' => $item->is_verify,
+                'isDefaultPasswordUpdated' => !$isDefault,
+                'defaultPassword' => $rawPassword,
                 'type_account' => $item->type_account,
-                'remember_token' => $item->remember_token,
                 'created_at' => $item->created_at,
                 'updated_at' => $item->updated_at,
             ];
@@ -1038,18 +1016,19 @@ public function liste_admin(Request $request)
 
         return response()->json([
             'success' => true,
-            'message' => 'Liste des admins affichée avec succès.',
+            'message' => 'Liste des sous-administrateurs affichée avec succès.',
             'data' => $data
         ], 200);
 
     } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Erreur lors de l’affichage de la liste des admins.',
+            'message' => 'Erreur lors de l’affichage de la liste des sous-administrateurs.',
             'erreur' => $e->getMessage()
         ], 500);
     }
 }
+
 
 public function delete_admin(Request $request, $id){
     try{
@@ -1089,45 +1068,69 @@ public function delete_admin(Request $request, $id){
     }
 }
 
-public function reset_password(Request $request, $id){
-    try{
+public function reset_password(Request $request, $id)
+{
+    try {
         $user = $request->user();
-        if(!$user){
-            return response()->json([
-               'success' => false,
-               'message' => 'Utilisateur non trouvé' 
-            ],404);
-        }
-        if($user->type_account != 2){
+
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vous n’avez pas la permission de supprimer le sous admin'
+                'message' => 'Utilisateur non trouvé.'
+            ], 404);
+        }
+
+        if ($user->type_account != 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous n’avez pas la permission de réinitialiser le mot de passe d’un sous-admin.'
             ], 403);
         }
-        $admin = Admin::where('id', $id)->first();
-        if(!$admin){
+
+        $admin = Admin::find($id);
+        if (!$admin) {
             return response()->json([
                 'success' => false,
-                'message' => 'Sous admin non trouvé'
-            ],404);
+                'message' => 'Sous-administrateur non trouvé.'
+            ], 404);
         }
-        $admin->updated_at = $admin->created_at;
-        $admin->save();
+
+        // 🔹 Recréation du mot de passe par défaut
+        $nom = preg_replace('/\s+/', '', $admin->nom_admin);
+        $partNom = Str::substr(Str::lower($nom), 0, 3);
+        if (Str::length($partNom) < 3) {
+            $partNom = Str::padRight($partNom, 3, 'x');
+        }
+
+        $telDigits = preg_replace('/\D/', '', $admin->tel_admin);
+        $partTel = substr($telDigits, 0, 2);
+        if (strlen($partTel) < 2) {
+            $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+        }
+
+        $rawPassword = $partNom . $partTel . 'admin';
+        $hashedPassword = Hash::make($rawPassword);
+
+        // 🔸 Mise à jour réelle du mot de passe
+        $admin->update([
+            'password_admin' => $hashedPassword,
+            'updated_at' => now()
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Mot de passe rénitialisé'
-        ],200);
+            'message' => 'Mot de passe réinitialisé avec succès.',
+        ], 200);
 
-    }
-    catch(QueryException $e){
+    } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Erreur lors de la remise par defaut du mot de passe.',
+            'message' => 'Erreur lors de la réinitialisation du mot de passe.',
             'erreur' => $e->getMessage()
-        ],500);
+        ], 500);
     }
 }
+
 
 
 
