@@ -995,8 +995,23 @@ public function liste_admin(Request $request)
 
                 $rawPassword = $partNom . $partTel . 'admin';
                 $password = $rawPassword;
+                $is_update = false;
             } else {
-                $password = '-';
+                $nom = preg_replace('/\s+/', '', $item->nom_admin);
+                $partNom = Str::substr(Str::lower($nom), 0, 3);
+                if (Str::length($partNom) < 3) {
+                    $partNom = Str::padRight($partNom, 3, 'x');
+                }
+
+                $telDigits = preg_replace('/\D/', '', $item->tel_admin);
+                $partTel = substr($telDigits, 0, 2);
+                if (strlen($partTel) < 2) {
+                    $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+                }
+
+                $rawPassword = $partNom . $partTel . 'admin';
+                $password = $rawPassword;
+                $is_update = true;
             }
 
             // 🔸 Structure identique à celle des users
@@ -1009,7 +1024,8 @@ public function liste_admin(Request $request)
                 ],
                 'image_profil' => $item->image_profil ? url('storage/' . $item->image_profil) : null,
                 'email_user' => $item->email_admin,
-                'password' => $password,
+                'isDefaultPasswordUpdated' => $is_update,
+                'defaultPassword' => $password,
                 'otp' => $item->otp,
                 'otp_expire_at' => $item->otp_expire_at,
                 'is_verify' => $item->is_verify,
@@ -1035,7 +1051,83 @@ public function liste_admin(Request $request)
     }
 }
 
+public function delete_admin(Request $request, $id){
+    try{
+        $user = $request->user();
+        if(!$user){
+            return response()->json([
+               'success' => false,
+               'message' => 'Utilisateur non trouvé' 
+            ],404);
+        }
+        if($user->type_account != 2){
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous n’avez pas la permission de supprimer le sous admin'
+            ], 403);
+        }
 
+        $admin = Admin::where('id', $id)->first();
+        if(!$admin){
+            return response()->json([
+                'success' => false,
+                'message' => 'Sous admin non trouvé'
+            ],404);
+        }
+
+        $admin->delete();
+        return response()->json([
+            'success' => true,
+            'message' => 'Sous admin supprimé avec succès'
+        ],200);
+    }
+    catch(QueryException $e){
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la suppression du sous admin'
+        ],500);
+    }
+}
+
+public function reset_password(Request $request, $id){
+    try{
+        $user = $request->user();
+        if(!$user){
+            return response()->json([
+               'success' => false,
+               'message' => 'Utilisateur non trouvé' 
+            ],404);
+        }
+        if($user->type_account != 2){
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous n’avez pas la permission de supprimer le sous admin'
+            ], 403);
+        }
+        $admin = Admin::where('id', $id)->first();
+        if(!$admin){
+            return response()->json([
+                'success' => false,
+                'message' => 'Sous admin non trouvé'
+            ],404);
+        }
+        $admin->updated_at = $admin->created_at;
+        $admin->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mot de passe rénitialisé'
+        ],200);
+
+    }
+    catch(QueryException $e){
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la remise par defaut du mot de passe.',
+            'erreur' => $e->getMessage()
+        ],500);
+    }
+}
 
 
 
