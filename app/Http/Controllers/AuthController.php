@@ -553,72 +553,73 @@ public function login(Request $request)
 
 
 public function creer_sous_admin(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nom_admin' => 'required|string|max:255',
-            'email_admin' => 'required|email|unique:admins,email_admin',
-            'tel_admin' => 'required|digits:10|unique:admins,tel_admin',
-        ], [
-            'nom_admin.required' => 'Le nom est obligatoire.',
-            'email_admin.required' => 'L’adresse e-mail est obligatoire.',
-            'email_admin.email' => 'L’adresse e-mail est invalide.',
-            'email_admin.unique' => 'Cet e-mail est déjà utilisé.',
-            'tel_admin.required' => 'Le numéro de téléphone est obligatoire.',
-            'tel_admin.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
-            'tel_admin.unique' => 'Ce numéro est déjà utilisé.',
+{
+    $validator = Validator::make($request->all(), [
+        'nom' => 'required|string|max:255',
+        'email_user' => 'required|email|unique:admins,email_admin',
+        'tel_user' => 'required|digits:10|unique:admins,tel_admin',
+    ], [
+        'nom.required' => 'Le nom est obligatoire.',
+        'email_user.required' => 'L’adresse e-mail est obligatoire.',
+        'email_user.email' => 'L’adresse e-mail est invalide.',
+        'email_user.unique' => 'Cet e-mail est déjà utilisé.',
+        'tel_user.required' => 'Le numéro de téléphone est obligatoire.',
+        'tel_user.digits' => 'Le numéro de téléphone doit contenir 10 chiffres.',
+        'tel_user.unique' => 'Ce numéro est déjà utilisé.',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    try {
+        $nom = preg_replace('/\s+/', '', $request->nom);
+        $partNom = Str::substr(Str::lower($nom), 0, 3);
+        if (Str::length($partNom) < 3) {
+            $partNom = Str::padRight($partNom, 3, 'x');
+        }
+
+        $telDigits = preg_replace('/\D/', '', $request->tel_user);
+        $partTel = substr($telDigits, 0, 2);
+        if (strlen($partTel) < 2) {
+            $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
+        }
+
+        $rawPassword = $partNom . $partTel . 'admin';
+        $hashedPassword = Hash::make($rawPassword);
+        
+        $subAdmin = Admin::create([
+            'nom_admin' => $request->nom,
+            'email_admin' => $request->email_user,
+            'tel_admin' => $request->tel_user,
+            'is_whatsapp' => false,
+            'password_admin' => $hashedPassword,
+            'type_account' => 1 
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first()
-            ], 422);
-        }
-
-        try {
-            $nom = preg_replace('/\s+/', '', $request->nom_admin);
-            $partNom = Str::substr(Str::lower($nom), 0, 3);
-            if (Str::length($partNom) < 3) {
-                // si le nom < 3 lettres, compléter avec 'x'
-                $partNom = Str::padRight($partNom, 3, 'x');
-            }
-
-            $telDigits = preg_replace('/\D/', '', $request->tel_admin);
-            $partTel = substr($telDigits, 0, 2);
-            if (strlen($partTel) < 2) {
-                // si moins de 2 chiffres, compléter avec '0'
-                $partTel = str_pad($partTel, 2, '0', STR_PAD_RIGHT);
-            }
-
-            $rawPassword = $partNom . $partTel . 'admin';
-
-            $hashedPassword = Hash::make($rawPassword);
-            
-            $subAdmin = Admin::create([
-                'nom_admin' => $request->nom_admin,
-                'email_admin' => $request->email_admin,
-                'tel_admin' => $request->tel_admin,
-                'is_whatsapp' => false,
-                'password_admin' => $hashedPassword,
-                'type_account' => 1 
-            ]);
-
-            $data = $subAdmin->toArray();
-            $data['password_admin'] = $rawPassword;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sous-administrateur créé avec succès.',
-                'data' => $data
-            ], 201);
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la création du sous-administrateur.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Sous-administrateur créé avec succès.',
+            'data' => [
+                'id' => $subAdmin->id,
+                'nom' => $subAdmin->nom_admin,
+                'email_user' => $subAdmin->email_admin,
+                'tel_user' => $subAdmin->tel_admin,
+                'password' => $rawPassword
+            ]
+        ], 201);
+    } catch (QueryException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la création du sous-administrateur.',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
+
 
 
 
