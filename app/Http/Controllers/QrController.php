@@ -15,7 +15,6 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use ZipArchive;
-use Intervention\Image\Laravel\Facades\Image;
 
 class QrController extends Controller
 {
@@ -810,88 +809,103 @@ public function downloadZip($id)
     $occasion = Occasion::find($id);
 
     if (!$occasion) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Occasion introuvable.',
-        ], 404);
+        return response()->json(['success' => false, 'message' => 'Occasion introuvable.'], 404);
     }
 
-    // 📦 Chemin du dossier temporaire
-    $tmpFolder = storage_path("app/tmp_qr_png");
-    if (!File::exists($tmpFolder)) {
-        File::makeDirectory($tmpFolder, 0777, true, true);
-    }
+    $folderPath = storage_path("app/occasions/{$occasion->nom_occasion}");
+    File::ensureDirectoryExists($folderPath);
 
-    // 📦 Nom et chemin du ZIP
-    $zipFileName = "{$occasion->nom_occasion}.zip";
-    $zipFilePath = storage_path("app/occasions/{$zipFileName}");
-
-    // 🧹 Supprimer ancien ZIP s’il existe
-    if (File::exists($zipFilePath)) {
-        File::delete($zipFilePath);
-    }
-
-    // ⚙️ Créer le ZIP
-    $zip = new ZipArchive();
-    if ($zip->open($zipFilePath, ZipArchive::CREATE) !== TRUE) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Erreur lors de la création du fichier ZIP.',
-        ], 500);
-    }
-
-    // 🧠 Récupérer tous les QR liés à cette occasion
     $qrs = Qr::where('id_occasion', $occasion->id)->get();
-
     if ($qrs->isEmpty()) {
-        return response()->json([
-            'success' => false,
-            'message' => "Aucun QR trouvé pour cette occasion.",
-        ], 404);
+        return response()->json(['success' => false, 'message' => "Aucun QR trouvé."], 404);
     }
 
-    // 📸 Logo à insérer au centre
-    $logoPath = public_path('storage/images/image.jpg'); // <-- mets ton logo ici
+    $logoPath = public_path('storage/images/image.jpg');
     if (!file_exists($logoPath)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Logo introuvable.',
-        ], 404);
+        return response()->json(['success' => false, 'message' => 'Logo introuvable.'], 404);
     }
 
-    // 🔁 Générer les QR + ajouter le logo
+    $logoBase64 = base64_encode(file_get_contents($logoPath));
+    $logoSize = 70;
+    $qrSize = 300;
+    $x = ($qrSize - $logoSize) / 2;
+    $y = ($qrSize - $logoSize) / 2;
+
+    $pngFolder = $folderPath . '/png';
+    File::ensureDirectoryExists($pngFolder);
+
     foreach ($qrs as $qr) {
-        $fileName = "{$qr->id}.png";
-        $pngPath = "{$tmpFolder}/{$fileName}";
+        $link_id = "https://skanfy.com/{$qr->id}";
+        $svgPath = "{$folderPath}/{$qr->id}.svg";
+        $pngPath = "{$pngFolder}/{$qr->id}.png";
 
-        // 🔗 Contenu du QR
-        $url = "https://skanfy.com/{$qr->id}";
-
-        // Génération du QR code
-        $qrImage = QrCode::format('png')
-            ->size(600)
-            ->margin(2)
+        // 🌀 Génération SVG
+        $qrSvg = QrCode::format('svg')
+            ->size($qrSize)
             ->errorCorrection('H')
-            ->generate($url);
+            ->generate($link_id);
 
-        // Création image QR
-        $qrPng = Image::make($qrImage);
+        $logoSvg = "
+            <rect x='$x' y='$y' width='$logoSize' height='$logoSize' rx='15' ry='15' fill='white'/>
+            <image href='data:image/jpeg;base64,$logoBase64' x='$x' y='$y' width='$logoSize' height='$logoSize'/>
+        ";
 
-        // Intégration du logo centré
-        $logo = Image::make($logoPath)->resize(100, 100);
-        $qrPng->insert($logo, 'center');
+        $finalSvg = str_replace('</svg>', $logoSvg . '</svg>', $qrSvg);
+        File::put($svgPath, $finalSvg);
 
-        // Sauvegarde en PNG
-        $qrPng->save($pngPath);
+        // 🚀 Conversion via API CloudConvert (ou ConvertAPI)
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('CLOUDCONVERT_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.cloudconvert.com/v2/jobs', [
+            'tasks' => [
+                'import-svg' => [
+                    'operation' => 'import/base64',
+                    'file' => base64_encode(file_get_contents($svgPath)),
+                    'filename' => "{$qr->id}.svg"
+                ],
+                'convert-svg' => [
+                    'operation' => 'convert',
+                    'input' => 'import-svg',
+                    'output_format' => 'png'
+                ],
+                'export-url' => [
+                    'operation' => 'export/url',
+                    'input' => 'convert-svg'
+                ]
+            ]
+        ]);
 
-        // Ajout dans le ZIP
-        $zip->addFile($pngPath, $fileName);
+        $job = $response->json()['data'];
+        $jobId = $job['id'];
+
+        // ⏳ Attendre que la conversion soit terminée
+        do {
+            sleep(2);
+            $status = Http::withToken(env('CLOUDCONVERT_API_KEY'))
+                ->get("https://api.cloudconvert.com/v2/jobs/{$jobId}")
+                ->json();
+            $jobData = $status['data'];
+        } while ($jobData['status'] !== 'finished');
+
+        // 📥 Télécharger le fichier PNG
+        $fileUrl = $jobData['tasks'][2]['result']['files'][0]['url'];
+        file_put_contents($pngPath, file_get_contents($fileUrl));
     }
 
-    $zip->close();
+    // 📦 ZIP
+    $zipPath = storage_path("app/occasions/{$occasion->nom_occasion}.zip");
+    if (File::exists($zipPath)) File::delete($zipPath);
 
-    // 📦 Téléchargement du ZIP
-    return response()->download($zipFilePath)->deleteFileAfterSend(true);
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) === TRUE) {
+        foreach (File::files($pngFolder) as $file) {
+            $zip->addFile($file, basename($file));
+        }
+        $zip->close();
+    }
+
+    return response()->download($zipPath)->deleteFileAfterSend(true);
 }
 
 }
