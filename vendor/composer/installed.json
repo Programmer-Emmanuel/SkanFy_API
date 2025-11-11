@@ -1654,17 +1654,17 @@
         },
         {
             "name": "intervention/image",
-            "version": "3.11.0",
-            "version_normalized": "3.11.0.0",
+            "version": "3.11.4",
+            "version_normalized": "3.11.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Intervention/image.git",
-                "reference": "6b9ce4fc4485d30117e13935b25bc55a8b894a79"
+                "reference": "8c49eb21a6d2572532d1bc425964264f3e496846"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Intervention/image/zipball/6b9ce4fc4485d30117e13935b25bc55a8b894a79",
-                "reference": "6b9ce4fc4485d30117e13935b25bc55a8b894a79",
+                "url": "https://api.github.com/repos/Intervention/image/zipball/8c49eb21a6d2572532d1bc425964264f3e496846",
+                "reference": "8c49eb21a6d2572532d1bc425964264f3e496846",
                 "shasum": ""
             },
             "require": {
@@ -1675,14 +1675,14 @@
             "require-dev": {
                 "mockery/mockery": "^1.6",
                 "phpstan/phpstan": "^2.1",
-                "phpunit/phpunit": "^10.0 || ^11.0",
+                "phpunit/phpunit": "^10.0 || ^11.0 || ^12.0",
                 "slevomat/coding-standard": "~8.0",
                 "squizlabs/php_codesniffer": "^3.8"
             },
             "suggest": {
                 "ext-exif": "Recommended to be able to read EXIF data properly."
             },
-            "time": "2025-01-18T15:42:14+00:00",
+            "time": "2025-07-30T13:13:19+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -1713,7 +1713,7 @@
             ],
             "support": {
                 "issues": "https://github.com/Intervention/image/issues",
-                "source": "https://github.com/Intervention/image/tree/3.11.0"
+                "source": "https://github.com/Intervention/image/tree/3.11.4"
             },
             "funding": [
                 {

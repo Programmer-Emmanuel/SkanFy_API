@@ -10,7 +10,7 @@
         "cloudconvert/cloudconvert-laravel": "^1.1",
         "cloudconvert/cloudconvert-php": "^3.4",
         "guzzlehttp/guzzle": "^7.10",
-        "intervention/image": "3.11",
+        "intervention/image": "^3.11",
         "intervention/image-laravel": "^1.5",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",

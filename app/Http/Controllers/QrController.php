@@ -804,108 +804,154 @@ public function historique_occasion()
 
 
 
+
 public function downloadZip($id)
 {
     $occasion = Occasion::find($id);
 
     if (!$occasion) {
-        return response()->json(['success' => false, 'message' => 'Occasion introuvable.'], 404);
+        return response()->json([
+            'success' => false,
+            'message' => 'Occasion introuvable.',
+        ], 404);
     }
 
+    // 📁 Dossier de destination pour les PNG
     $folderPath = storage_path("app/occasions/{$occasion->nom_occasion}");
-    File::ensureDirectoryExists($folderPath);
+    $pngFolderPath = storage_path("app/occasions/{$occasion->nom_occasion}/png");
 
-    $qrs = Qr::where('id_occasion', $occasion->id)->get();
-    if ($qrs->isEmpty()) {
-        return response()->json(['success' => false, 'message' => "Aucun QR trouvé."], 404);
+    if (!File::exists($pngFolderPath)) {
+        File::makeDirectory($pngFolderPath, 0777, true, true);
     }
 
+    // 🧠 Récupération des QR liés à cette occasion
+    $qrs = Qr::where('id_occasion', $occasion->id)->get();
+
+    if ($qrs->isEmpty()) {
+        return response()->json([
+            'success' => false,
+            'message' => "Aucun QR trouvé pour cette occasion.",
+        ], 404);
+    }
+
+    // 📸 Logo central
     $logoPath = public_path('storage/images/image.jpg');
     if (!file_exists($logoPath)) {
-        return response()->json(['success' => false, 'message' => 'Logo introuvable.'], 404);
+        return response()->json([
+            'success' => false,
+            'message' => 'Logo introuvable.',
+        ], 404);
     }
 
-    $logoBase64 = base64_encode(file_get_contents($logoPath));
     $logoSize = 70;
     $qrSize = 300;
-    $x = ($qrSize - $logoSize) / 2;
-    $y = ($qrSize - $logoSize) / 2;
 
-    $pngFolder = $folderPath . '/png';
-    File::ensureDirectoryExists($pngFolder);
-
+    // 🌀 Génération directe des QR codes en PNG avec logo
     foreach ($qrs as $qr) {
         $link_id = "https://skanfy.com/{$qr->id}";
-        $svgPath = "{$folderPath}/{$qr->id}.svg";
-        $pngPath = "{$pngFolder}/{$qr->id}.png";
+        $pngFileName = "{$qr->id}.png";
+        $pngFilePath = "{$pngFolderPath}/{$pngFileName}";
 
-        // 🌀 Génération SVG
-        $qrSvg = QrCode::format('svg')
+        // Génération du QR code en PNG
+        $qrPng = QrCode::format('png')
             ->size($qrSize)
+            ->margin(2)
             ->errorCorrection('H')
             ->generate($link_id);
 
-        $logoSvg = "
-            <rect x='$x' y='$y' width='$logoSize' height='$logoSize' rx='15' ry='15' fill='white'/>
-            <image href='data:image/jpeg;base64,$logoBase64' x='$x' y='$y' width='$logoSize' height='$logoSize'/>
-        ";
+        // Sauvegarde temporaire
+        $tempQrPath = storage_path("app/temp_qr.png");
+        File::put($tempQrPath, $qrPng);
 
-        $finalSvg = str_replace('</svg>', $logoSvg . '</svg>', $qrSvg);
-        File::put($svgPath, $finalSvg);
+        // Charger le QR code comme image GD
+        $qrImage = imagecreatefrompng($tempQrPath);
 
-        // 🚀 Conversion via API CloudConvert (ou ConvertAPI)
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('CLOUDCONVERT_API_KEY'),
-            'Content-Type' => 'application/json',
-        ])->post('https://api.cloudconvert.com/v2/jobs', [
-            'tasks' => [
-                'import-svg' => [
-                    'operation' => 'import/base64',
-                    'file' => base64_encode(file_get_contents($svgPath)),
-                    'filename' => "{$qr->id}.svg"
-                ],
-                'convert-svg' => [
-                    'operation' => 'convert',
-                    'input' => 'import-svg',
-                    'output_format' => 'png'
-                ],
-                'export-url' => [
-                    'operation' => 'export/url',
-                    'input' => 'convert-svg'
-                ]
-            ]
-        ]);
+        // Charger le logo selon son type
+        $logoInfo = getimagesize($logoPath);
+        $logoType = $logoInfo[2];
+        
+        switch ($logoType) {
+            case IMAGETYPE_JPEG:
+                $logoImage = imagecreatefromjpeg($logoPath);
+                break;
+            case IMAGETYPE_PNG:
+                $logoImage = imagecreatefrompng($logoPath);
+                break;
+            case IMAGETYPE_GIF:
+                $logoImage = imagecreatefromgif($logoPath);
+                break;
+            default:
+                $logoImage = imagecreatefromjpeg($logoPath);
+        }
 
-        $job = $response->json()['data'];
-        $jobId = $job['id'];
+        // Redimensionner le logo en préservant la qualité
+        $resizedLogo = imagecreatetruecolor($logoSize, $logoSize);
+        
+        // Préserver la transparence pour les PNG
+        if ($logoType == IMAGETYPE_PNG) {
+            imagealphablending($resizedLogo, false);
+            imagesavealpha($resizedLogo, true);
+            $transparent = imagecolorallocatealpha($resizedLogo, 255, 255, 255, 127);
+            imagefilledrectangle($resizedLogo, 0, 0, $logoSize, $logoSize, $transparent);
+        }
+        
+        imagecopyresampled(
+            $resizedLogo, $logoImage,
+            0, 0, 0, 0,
+            $logoSize, $logoSize,
+            imagesx($logoImage), imagesy($logoImage)
+        );
 
-        // ⏳ Attendre que la conversion soit terminée
-        do {
-            sleep(2);
-            $status = Http::withToken(env('CLOUDCONVERT_API_KEY'))
-                ->get("https://api.cloudconvert.com/v2/jobs/{$jobId}")
-                ->json();
-            $jobData = $status['data'];
-        } while ($jobData['status'] !== 'finished');
+        // Calculer la position pour centrer le logo
+        $x = (imagesx($qrImage) - $logoSize) / 2;
+        $y = (imagesy($qrImage) - $logoSize) / 2;
 
-        // 📥 Télécharger le fichier PNG
-        $fileUrl = $jobData['tasks'][2]['result']['files'][0]['url'];
-        file_put_contents($pngPath, file_get_contents($fileUrl));
+        // Ajouter un fond blanc pour le logo (carré avec coins arrondis simulés)
+        $white = imagecolorallocate($qrImage, 255, 255, 255);
+        $margin = 5; // Marge intérieure
+        imagefilledrectangle($qrImage, 
+            $x - $margin, $y - $margin, 
+            $x + $logoSize + $margin, $y + $logoSize + $margin, 
+            $white
+        );
+
+        // Copier le logo sur le QR code avec fusion
+        imagecopy($qrImage, $resizedLogo, $x, $y, 0, 0, $logoSize, $logoSize);
+
+        // Sauvegarder l'image finale en haute qualité
+        imagepng($qrImage, $pngFilePath, 9);
+
+        // Libérer la mémoire
+        imagedestroy($qrImage);
+        imagedestroy($logoImage);
+        imagedestroy($resizedLogo);
+
+        // Supprimer le fichier temporaire
+        File::delete($tempQrPath);
     }
 
-    // 📦 ZIP
-    $zipPath = storage_path("app/occasions/{$occasion->nom_occasion}.zip");
-    if (File::exists($zipPath)) File::delete($zipPath);
+    // 📦 Création du ZIP
+    $zipFileName = "{$occasion->nom_occasion}.zip";
+    $zipFilePath = storage_path("app/occasions/{$zipFileName}");
+
+    if (File::exists($zipFilePath)) {
+        File::delete($zipFilePath);
+    }
 
     $zip = new ZipArchive();
-    if ($zip->open($zipPath, ZipArchive::CREATE) === TRUE) {
-        foreach (File::files($pngFolder) as $file) {
-            $zip->addFile($file, basename($file));
+    if ($zip->open($zipFilePath, ZipArchive::CREATE) === TRUE) {
+        $pngFiles = File::files($pngFolderPath);
+        foreach ($pngFiles as $file) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'png') {
+                $zip->addFile($file, basename($file));
+            }
         }
         $zip->close();
     }
 
-    return response()->download($zipPath)->deleteFileAfterSend(true);
+    // 📤 Téléchargement
+    return response()->download($zipFilePath)->deleteFileAfterSend(true);
 }
+
 
 }
