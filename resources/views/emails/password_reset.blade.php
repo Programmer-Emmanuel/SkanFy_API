@@ -44,10 +44,10 @@
     <p style="text-align:center;">
         <a href="{{ $resetUrl }}" class="btn">Réinitialiser mon mot de passe</a>
     </p>
-    <p>Ce lien expirera dans <strong>60 minutes</strong>.</p>
+    <p>Ce lien expirera dans <strong>10 minutes</strong>.</p>
     <p>Si vous n’êtes pas à l’origine de cette demande, ignorez simplement cet e-mail.</p>
     <div class="footer">
-        &copy; {{ date('Y') }} TonApplication. Tous droits réservés.
+        &copy; {{ date('Y') }} Skanfy. Tous droits réservés.
     </div>
 </div>
 </body>

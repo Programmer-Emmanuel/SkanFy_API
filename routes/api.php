@@ -98,7 +98,7 @@ Route::middleware('auth:admin')->group(function(){
 Route::get('/occasions/{id}/download-zip', [QrController::class, 'downloadZip'])->name('occasions.download.zip');
 
 Route::post('/password/forgot', [PasswordResetController::class, 'sendResetLink']);
-Route::post('/password/verify/{token}', [PasswordResetController::class, 'verifyToken']);
+Route::get('/password/verify/{token}', [PasswordResetController::class, 'verifyToken']);
 Route::post('/password/reset/{token}', [PasswordResetController::class, 'resetPassword']);
 
 

@@ -86,7 +86,7 @@ class QrController extends Controller
                 'id_user' => null,
             ]);
             // 🔗 Ton lien unique
-$link_id = "https://skanfy.com/{$qr->id}";
+$link_id = "https://skanfy.com/info-qr/{$qr->id}";
 
 // 📸 Ton logo (dans storage)
 $logoPath = public_path('storage/images/image.jpg');

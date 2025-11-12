@@ -33,8 +33,8 @@ class PasswordResetController extends Controller
             'created_at' => Carbon::now()
         ]);
 
-        // URL du lien front (ex : ton frontend React)
-        $resetUrl = "https://skanfy.com/reset-password?token={$token}&email={$request->email_user}";
+        
+        $resetUrl = "https://skanfy.com/reset-password/{$token}";
 
         // Envoi de l’e-mail
         Mail::to($request->email_user)->send(new PasswordResetMail($resetUrl));
