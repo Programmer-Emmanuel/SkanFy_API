@@ -21,6 +21,7 @@ class Qr extends Model
         'id_occasion',
         'id_objet',
         'id_user',
+        'generation'
     ];
 
     protected static function boot()

@@ -1005,7 +1005,7 @@ public function liste_admin(Request $request)
                     'value' => $item->tel_admin,
                     'is_whatsapp' => (int) ($item->is_whatsapp ?? 0),
                 ],
-                'image_profil' => $item->image_profil ? url('storage/' . $item->image_profil) : null,
+                'image_profil' => $item->image_profil,
                 'isDefaultPasswordUpdated' => !$isDefault,
                 'defaultPassword' => $rawPassword,
                 'type_account' => $item->type_account,

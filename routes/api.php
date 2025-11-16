@@ -95,7 +95,9 @@ Route::middleware('auth:admin')->group(function(){
     
 });
 
-Route::get('/occasions/{id}/download-zip', [QrController::class, 'downloadZip'])->name('occasions.download.zip');
+// Dans routes/web.php ou routes/api.php
+Route::get('/occasions/{id}/download-zip/{generation?}', [QrController::class, 'downloadZip'])
+    ->name('occasions.download.zip');
 
 Route::post('/password/forgot', [PasswordResetController::class, 'sendResetLink']);
 Route::get('/password/verify/{token}', [PasswordResetController::class, 'verifyToken']);

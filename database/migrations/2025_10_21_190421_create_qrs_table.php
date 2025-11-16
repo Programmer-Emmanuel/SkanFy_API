@@ -16,6 +16,7 @@ return new class extends Migration
             $table->boolean('is_active');
             $table->string('link_id')->nullable();
             $table->longText('image_qr')->nullable();
+            $table->integer('generation')->default(0);
 
             $table->uuid('id_occasion')->nullable();
             $table->uuid('id_objet')->nullable();

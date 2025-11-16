@@ -73,6 +73,9 @@ class QrController extends Controller
         }
 
         $qrs = [];
+        $maxGeneration = Qr::where('id_occasion', $request->id_occasion)->max('generation');
+        $newGeneration = is_null($maxGeneration) ? 1 : $maxGeneration + 1; // Commence à 1 si aucun QR
+
 
         // ✅ Création multiple de QR codes
         for ($i = 0; $i < $request->nombre_qr; $i++) {
@@ -84,6 +87,7 @@ class QrController extends Controller
                 'id_occasion' => $occasion->id,
                 'id_objet' => null,
                 'id_user' => null,
+                'generation' => $newGeneration
             ]);
             // 🔗 Ton lien unique
 $link_id = "https://skanfy.com/info-qr/{$qr->id}";
@@ -769,15 +773,32 @@ public function update_occasion(Request $request, $id){
 public function historique_occasion()
 {
     try {
-        // On récupère les occasions avec le nombre de QR liés
-        $occasions = Occasion::withCount('qrs')->having('qrs_count','>',0)->get();
+        // On récupère les occasions avec le nombre de QR et leurs générations
+        $occasions = Occasion::with(['qrs'])->withCount('qrs')->having('qrs_count', '>', 0)->get();
 
         $data = $occasions->map(function ($occasion) {
+            // Regrouper les QR par génération
+            $groupedByGeneration = $occasion->qrs
+                ->groupBy('generation')
+                ->map(function ($group, $generation) use ($occasion) {
+                    return [
+                        'id' => $generation,
+                        'number_generated' => $group->count(),
+                        'generated_at' => optional($group->first()->created_at)->format('Y-m-d H:i:s'), // date de création du premier QR de la génération
+                        'download_link' => route('occasions.download.zip', [
+                            'id' => $occasion->id,
+                            'generation' => $generation
+                        ])
+                    ];
+                })
+                ->values(); // pour convertir en array indexé
+
             return [
                 'id' => $occasion->id,
                 'organisation' => $occasion->nom_occasion,
                 'generated_number' => $occasion->qrs_count,
                 'download_link' => route('occasions.download.zip', ['id' => $occasion->id]),
+                'generations' => $groupedByGeneration,
             ];
         });
 
@@ -790,7 +811,7 @@ public function historique_occasion()
     } catch (QueryException $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Erreur lors de l’affichage de la liste des historiques.',
+            'message' => 'Erreur lors de l\'affichage de la liste des historiques.',
             'erreur' => $e->getMessage(),
         ], 500);
     } catch (\Exception $e) {
@@ -802,10 +823,7 @@ public function historique_occasion()
     }
 }
 
-
-
-
-public function downloadZip($id)
+public function downloadZip($id, $generation = null)
 {
     $occasion = Occasion::find($id);
 
@@ -816,26 +834,39 @@ public function downloadZip($id)
         ], 404);
     }
 
-    // 📁 Dossier de destination pour les PNG
-    $folderPath = storage_path("app/occasions/{$occasion->nom_occasion}");
-    $pngFolderPath = storage_path("app/occasions/{$occasion->nom_occasion}/png");
+    // Construire le chemin du dossier en fonction de la génération
+    $folderName = $occasion->nom_occasion;
+    if ($generation) {
+        $folderName .= "_generation_{$generation}";
+    }
+    
+    $folderPath = storage_path("app/occasions/{$folderName}");
+    $pngFolderPath = "$folderPath/png";
 
     if (!File::exists($pngFolderPath)) {
         File::makeDirectory($pngFolderPath, 0777, true, true);
     }
 
-    // 🧠 Récupération des QR liés à cette occasion
-    $qrs = Qr::where('id_occasion', $occasion->id)->get();
+    // Récupérer les QR codes avec ou sans filtre de génération
+    $query = Qr::where('id_occasion', $occasion->id);
+    
+    if ($generation) {
+        $query->where('generation', $generation);
+    }
+    
+    $qrs = $query->get();
 
     if ($qrs->isEmpty()) {
         return response()->json([
             'success' => false,
-            'message' => "Aucun QR trouvé pour cette occasion.",
+            'message' => $generation 
+                ? "Aucun QR trouvé pour cette occasion et cette génération." 
+                : "Aucun QR trouvé pour cette occasion.",
         ], 404);
     }
 
-    // 📸 Logo central
     $logoPath = public_path('storage/images/image.jpg');
+
     if (!file_exists($logoPath)) {
         return response()->json([
             'success' => false,
@@ -846,55 +877,70 @@ public function downloadZip($id)
     $logoSize = 70;
     $qrSize = 300;
 
-    // 🌀 Génération directe des QR codes en PNG avec logo
     foreach ($qrs as $qr) {
-        $link_id = "https://skanfy.com/{$qr->id}";
-        $pngFileName = "{$qr->id}.png";
-        $pngFilePath = "{$pngFolderPath}/{$pngFileName}";
+        $link_id = "https://skanfy.com/info-qr/{$qr->id}";
+        $pngPath = "$pngFolderPath/{$qr->id}.png";
 
-        // Génération du QR code en PNG
+        // Génération QR
         $qrPng = QrCode::format('png')
             ->size($qrSize)
             ->margin(2)
             ->errorCorrection('H')
             ->generate($link_id);
 
-        // Sauvegarde temporaire
         $tempQrPath = storage_path("app/temp_qr.png");
         File::put($tempQrPath, $qrPng);
 
-        // Charger le QR code comme image GD
+        // Charger le QR code
         $qrImage = imagecreatefrompng($tempQrPath);
+        
+        // Convertir le QR code en true color pour éviter les problèmes de palette
+        $trueColorQr = imagecreatetruecolor(imagesx($qrImage), imagesy($qrImage));
+        imagecopy($trueColorQr, $qrImage, 0, 0, 0, 0, imagesx($qrImage), imagesy($qrImage));
+        imagedestroy($qrImage);
+        $qrImage = $trueColorQr;
 
-        // Charger le logo selon son type
+        // Charger le logo
         $logoInfo = getimagesize($logoPath);
         $logoType = $logoInfo[2];
-        
+
         switch ($logoType) {
-            case IMAGETYPE_JPEG:
-                $logoImage = imagecreatefromjpeg($logoPath);
-                break;
             case IMAGETYPE_PNG:
                 $logoImage = imagecreatefrompng($logoPath);
+                break;
+            case IMAGETYPE_JPEG:
+                $logoImage = imagecreatefromjpeg($logoPath);
                 break;
             case IMAGETYPE_GIF:
                 $logoImage = imagecreatefromgif($logoPath);
                 break;
             default:
                 $logoImage = imagecreatefromjpeg($logoPath);
+                break;
         }
 
-        // Redimensionner le logo en préservant la qualité
+        // Convertir le logo en true color pour préserver les couleurs
+        $trueColorLogo = imagecreatetruecolor(imagesx($logoImage), imagesy($logoImage));
+        imagecopy($trueColorLogo, $logoImage, 0, 0, 0, 0, imagesx($logoImage), imagesy($logoImage));
+        imagedestroy($logoImage);
+        $logoImage = $trueColorLogo;
+
+        // Redimensionner le logo
         $resizedLogo = imagecreatetruecolor($logoSize, $logoSize);
         
-        // Préserver la transparence pour les PNG
         if ($logoType == IMAGETYPE_PNG) {
+            // Configuration pour PNG avec transparence
             imagealphablending($resizedLogo, false);
             imagesavealpha($resizedLogo, true);
-            $transparent = imagecolorallocatealpha($resizedLogo, 255, 255, 255, 127);
-            imagefilledrectangle($resizedLogo, 0, 0, $logoSize, $logoSize, $transparent);
+            $transparent = imagecolorallocatealpha($resizedLogo, 0, 0, 0, 127);
+            imagefill($resizedLogo, 0, 0, $transparent);
+        } else {
+            // Pour JPEG - utiliser un fond blanc
+            $white = imagecolorallocate($resizedLogo, 255, 255, 255);
+            imagefill($resizedLogo, 0, 0, $white);
         }
-        
+
+        // Redimensionnement avec interpolation de meilleure qualité
         imagecopyresampled(
             $resizedLogo, $logoImage,
             0, 0, 0, 0,
@@ -902,55 +948,70 @@ public function downloadZip($id)
             imagesx($logoImage), imagesy($logoImage)
         );
 
-        // Calculer la position pour centrer le logo
+        // Position centrée
         $x = (imagesx($qrImage) - $logoSize) / 2;
         $y = (imagesy($qrImage) - $logoSize) / 2;
 
-        // Ajouter un fond blanc pour le logo (carré avec coins arrondis simulés)
-        $white = imagecolorallocate($qrImage, 255, 255, 255);
-        $margin = 5; // Marge intérieure
-        imagefilledrectangle($qrImage, 
-            $x - $margin, $y - $margin, 
-            $x + $logoSize + $margin, $y + $logoSize + $margin, 
-            $white
-        );
+        // Méthode de fusion améliorée
+        if ($logoType == IMAGETYPE_PNG) {
+            // Pour PNG avec transparence
+            $this->imagecopymerge_alpha($qrImage, $resizedLogo, $x, $y, 0, 0, $logoSize, $logoSize, 100);
+        } else {
+            // Pour JPEG - copie normale
+            imagecopy($qrImage, $resizedLogo, $x, $y, 0, 0, $logoSize, $logoSize);
+        }
 
-        // Copier le logo sur le QR code avec fusion
-        imagecopy($qrImage, $resizedLogo, $x, $y, 0, 0, $logoSize, $logoSize);
+        // Sauvegarde avec compression maximale
+        imagepng($qrImage, $pngPath, 9);
 
-        // Sauvegarder l'image finale en haute qualité
-        imagepng($qrImage, $pngFilePath, 9);
-
-        // Libérer la mémoire
+        // Nettoyage
         imagedestroy($qrImage);
         imagedestroy($logoImage);
         imagedestroy($resizedLogo);
-
-        // Supprimer le fichier temporaire
         File::delete($tempQrPath);
     }
 
-    // 📦 Création du ZIP
-    $zipFileName = "{$occasion->nom_occasion}.zip";
-    $zipFilePath = storage_path("app/occasions/{$zipFileName}");
+    // Création du ZIP
+    $zipFileName = $generation 
+        ? "{$occasion->nom_occasion}_generation_{$generation}.zip"
+        : "{$occasion->nom_occasion}.zip";
+    
+    $zipFile = storage_path("app/occasions/{$zipFileName}");
 
-    if (File::exists($zipFilePath)) {
-        File::delete($zipFilePath);
+    if (File::exists($zipFile)) {
+        File::delete($zipFile);
     }
 
     $zip = new ZipArchive();
-    if ($zip->open($zipFilePath, ZipArchive::CREATE) === TRUE) {
-        $pngFiles = File::files($pngFolderPath);
-        foreach ($pngFiles as $file) {
-            if (pathinfo($file, PATHINFO_EXTENSION) === 'png') {
-                $zip->addFile($file, basename($file));
-            }
+    if ($zip->open($zipFile, ZipArchive::CREATE) === true) {
+        foreach (File::files($pngFolderPath) as $file) {
+            $zip->addFile($file, basename($file));
         }
         $zip->close();
     }
 
-    // 📤 Téléchargement
-    return response()->download($zipFilePath)->deleteFileAfterSend(true);
+    // Nettoyer le dossier temporaire après création du ZIP
+    File::deleteDirectory($folderPath);
+
+    return response()->download($zipFile)->deleteFileAfterSend(true);
+}
+
+/**
+ * Fonction helper pour fusionner avec transparence
+ */
+private function imagecopymerge_alpha($dst_im, $src_im, $dst_x, $dst_y, $src_x, $src_y, $src_w, $src_h, $pct)
+{
+    // Créer un masque temporaire
+    $cut = imagecreatetruecolor($src_w, $src_h);
+    
+    // Copier la région source
+    imagecopy($cut, $dst_im, 0, 0, $dst_x, $dst_y, $src_w, $src_h);
+    imagecopy($cut, $src_im, 0, 0, $src_x, $src_y, $src_w, $src_h);
+    
+    // Copier le résultat final
+    imagecopy($dst_im, $cut, $dst_x, $dst_y, 0, 0, $src_w, $src_h);
+    
+    imagedestroy($cut);
 }
 
 
