@@ -24,7 +24,7 @@ public function register_user(Request $request)
         'nom' => 'nullable|string',
         'email_user' => 'required|email',
         'tel_user' => 'nullable|digits:10',
-        'password' => 'required|string|min:8'
+        'password' => 'required|string|min:4'
     ], [
         'email_user.required' => 'L’email est obligatoire.',
         'email_user.email' => 'L’adresse e-mail est invalide.',
@@ -153,7 +153,7 @@ public function register_user(Request $request)
 {
     $request->validate([
         'email_user' => 'required|email',
-        'password' => 'required|string|min:8'
+        'password' => 'required|string|min:4'
     ]);
 
     $user = User::where('email_user', $request->email_user)->first();
@@ -484,7 +484,7 @@ public function login(Request $request)
 {
     $request->validate([
         'email' => 'required|email',
-        'password' => 'required|string|min:8'
+        'password' => 'required|string|min:4'
     ]);
 
     // 🔹 Vérifie d’abord dans la table des utilisateurs
@@ -858,8 +858,8 @@ public function change_password(Request $request)
         $isAdmin = isset($auth->password_admin);
 
         $validator = Validator::make($request->all(), [
-            'ancien_password' => 'required|string|min:8',
-            'nouveau' => 'required|string|min:8',
+            'ancien_password' => 'required|string|min:4',
+            'nouveau' => 'required|string|min:4',
         ]);
 
         if ($validator->fails()) {
