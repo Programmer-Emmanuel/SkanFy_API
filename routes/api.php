@@ -88,6 +88,7 @@ Route::middleware('auth:admin')->group(function(){
     Route::post('/delete/occasion/{id}', [QrController::class, 'delete_occasion']);
     //Historique des occasion
     Route::get('/historique/occasions', [QrController::class, 'historique_occasion']);
+    Route::get('/generation/occasions/{id}', [QrController::class, 'generations_occasion']);
 
     Route::get('/liste/admins', [AuthController::class, 'liste_admin']);
     Route::post('/delete/subadmin/{id}', [AuthController::class, 'delete_admin']);

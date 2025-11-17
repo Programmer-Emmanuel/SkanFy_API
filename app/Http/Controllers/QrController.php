@@ -773,32 +773,22 @@ public function update_occasion(Request $request, $id){
 public function historique_occasion()
 {
     try {
-        // On récupère les occasions avec le nombre de QR et leurs générations
-        $occasions = Occasion::with(['qrs'])->withCount('qrs')->having('qrs_count', '>', 0)->get();
+        // Récupérer les occasions avec au moins un QR généré
+        $occasions = Occasion::with('qrs')
+            ->withCount('qrs')
+            ->having('qrs_count', '>', 0)
+            ->get();
 
         $data = $occasions->map(function ($occasion) {
-            // Regrouper les QR par génération
-            $groupedByGeneration = $occasion->qrs
-                ->groupBy('generation')
-                ->map(function ($group, $generation) use ($occasion) {
-                    return [
-                        'id' => $generation,
-                        'number_generated' => $group->count(),
-                        'generated_at' => optional($group->first()->created_at)->format('Y-m-d H:i:s'), // date de création du premier QR de la génération
-                        'download_link' => route('occasions.download.zip', [
-                            'id' => $occasion->id,
-                            'generation' => $generation
-                        ])
-                    ];
-                })
-                ->values(); // pour convertir en array indexé
+            // Calcul du nombre de générations
+            $generationCount = $occasion->qrs->groupBy('generation')->count();
 
             return [
                 'id' => $occasion->id,
                 'organisation' => $occasion->nom_occasion,
                 'generated_number' => $occasion->qrs_count,
+                'total_history' => $generationCount,
                 'download_link' => route('occasions.download.zip', ['id' => $occasion->id]),
-                'generations' => $groupedByGeneration,
             ];
         });
 
@@ -808,20 +798,69 @@ public function historique_occasion()
             'message' => 'Historiques des occasions'
         ], 200);
 
-    } catch (QueryException $e) {
+    } catch (\Exception $e) {
         return response()->json([
             'success' => false,
             'message' => 'Erreur lors de l\'affichage de la liste des historiques.',
             'erreur' => $e->getMessage(),
         ], 500);
+    }
+}
+
+
+public function generations_occasion($id)
+{
+    try {
+        $occasion = Occasion::with('qrs')
+            ->withCount('qrs')
+            ->find($id);
+
+        if (!$occasion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Occasion introuvable.',
+            ], 404);
+        }
+
+        // Regrouper les QR par génération
+        $generations = $occasion->qrs
+            ->groupBy('generation')
+            ->map(function ($group, $generation) use ($occasion) {
+                return [
+                    'id' => $generation + 1,
+                    'nom_generation' => $occasion->nom_occasion . " " .$generation + 1,
+                    'number_generated' => $group->count(),
+                    'generated_at' => optional($group->first()->created_at)->format('Y-m-d H:i:s'),
+                    'download_link' => route('occasions.download.zip', [
+                        'id' => $occasion->id,
+                        'generation' => $generation
+                    ])
+                ];
+            })
+            ->values(); // format array
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $occasion->id,
+                'organisation' => $occasion->nom_occasion,
+                'generated_number' => $occasion->qrs_count,
+                'download_link' => route('occasions.download.zip', ['id' => $occasion->id]),
+                'total_history' => $generations->count(),
+                'generations' => $generations,
+            ],
+            'message' => 'Générations des QR pour cette occasion',
+        ], 200);
+
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Erreur interne du serveur.',
+            'message' => 'Erreur lors de la récupération des générations.',
             'erreur' => $e->getMessage(),
         ], 500);
     }
 }
+
 
 public function downloadZip($id, $generation = null)
 {
