@@ -811,9 +811,11 @@ public function historique_occasion()
 public function generations_occasion($id)
 {
     try {
-        $occasion = Occasion::with('qrs')
-            ->withCount('qrs')
-            ->find($id);
+        $occasion = Occasion::with(['qrs' => function ($query) {
+            $query->orderBy('created_at', 'desc');
+        }])
+        ->withCount('qrs')
+        ->find($id);
 
         if (!$occasion) {
             return response()->json([

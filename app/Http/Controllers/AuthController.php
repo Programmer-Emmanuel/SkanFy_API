@@ -350,7 +350,7 @@ public function info_user(Request $request)
                 'tel_user.is_whatsapp' => 'nullable|boolean',
                 'autre_tel.value' => 'nullable|string|digits:10',
                 'autre_tel.is_whatsapp' => 'nullable|boolean',
-                'image_profil' => 'nullable|image|max:2048',
+                'image_profil' => 'nullable|image|max:5048',
             ],
             [
                 'nom.string' => 'Le nom doit être une chaîne de caractères.',
