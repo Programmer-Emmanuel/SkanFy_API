@@ -1009,9 +1009,12 @@ public function downloadZip($id, $generation = null)
         $originalWidth = imagesx($qrImage);
         $originalHeight = imagesy($qrImage);
         
-        // Calculer la hauteur nécessaire pour le texte
-        $fontSize = 12; // Taille de police GD (1-5)
-        $textHeight = imagefontheight($fontSize) + 15; // Hauteur du texte + marge
+        // Configuration de la police - CORRIGÉ ICI
+        $fontSize = 14; // Taille pour Montserrat (peut être 12, 14, 16, etc.)
+        $fontPath = public_path('fonts/Montserrat-Bold.ttf');
+        
+        // Hauteur estimée pour le texte (ajustez selon votre besoin)
+        $textHeight = 40;
         
         // Créer une nouvelle image avec l'espace pour le texte
         $finalWidth = $originalWidth;
@@ -1036,13 +1039,23 @@ public function downloadZip($id, $generation = null)
         // Ajouter le texte
         $textColor = imagecolorallocate($finalImage, 0, 0, 0); // Noir
         
-        // Calculer la position du texte
-        $textWidth = imagefontwidth($fontSize) * strlen($text);
-        $textX = ($finalWidth - $textWidth) / 2;
-        $textY = $qrY + $originalHeight + 5; // Positionner juste en dessous du QR code
-        
-        // Ajouter le texte
-        imagestring($finalImage, $fontSize, $textX, $textY, $text, $textColor);
+        // Vérifier si la police Montserrat existe
+        if (file_exists($fontPath)) {
+            // Utiliser imagettftext avec Montserrat
+            $bbox = imagettfbbox($fontSize, 0, $fontPath, $text);
+            $textWidth = $bbox[2] - $bbox[0];
+            $textX = ($finalWidth - $textWidth) / 2;
+            $textY = $qrY + $originalHeight + 30; // Position ajustée
+            
+            imagettftext($finalImage, $fontSize, 0, $textX, $textY, $textColor, $fontPath, $text);
+        } else {
+            // Fallback avec imagestring si la police n'existe pas
+            $fontSize = 5; // Maximum pour imagestring
+            $textWidth = imagefontwidth($fontSize) * strlen($text);
+            $textX = ($finalWidth - $textWidth) / 2;
+            $textY = $qrY + $originalHeight + 15;
+            imagestring($finalImage, $fontSize, $textX, $textY, $text, $textColor);
+        }
 
         // Sauvegarde avec compression maximale
         imagepng($finalImage, $pngPath, 9);
