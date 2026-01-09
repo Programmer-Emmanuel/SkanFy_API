@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code de Vérification - ScanFy</title>
+    <title>Code de Vérification - SkanFy</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -180,7 +180,7 @@
 <body>
     <div class="email-container">
         <div class="header">
-            <div class="logo">ScanFy</div>
+            <div class="logo">SkanFy</div>
             <div class="logo-subtitle">Votre solution de codes QR intelligents</div>
         </div>
         
@@ -202,7 +202,7 @@
             <div class="security-note">
                 <p class="security-text">
                     🔒 Pour votre sécurité, ne partagez jamais ce code avec qui que ce soit. 
-                    L'équipe ScanFy ne vous demandera jamais votre code de vérification.
+                    L'équipe SkanFy ne vous demandera jamais votre code de vérification.
                 </p>
             </div>
         </div>
@@ -210,7 +210,7 @@
         <div class="footer">
             <p class="footer-text">
                 Si vous n'avez pas demandé ce code, veuillez ignorer cet email.<br>
-                © 2025 <span class="brand">ScanFy</span>. Tous droits réservés.
+                © 2025 <span class="brand">SkanFy</span>. Tous droits réservés.
             </p>
         </div>
     </div>

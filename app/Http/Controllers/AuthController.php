@@ -56,11 +56,26 @@ public function register_user(Request $request)
             }
 
             // Sinon (non vérifié) => supprimer l'ancien pour recréer un nouveau
-            $existingUser->delete();
+            if ($existingUser && !$existingUser->is_verify) {
+
+                $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+                $existingUser->update([
+                    'otp' => $otp,
+                    'otp_expire_at' => Carbon::now()->addMinutes(10),
+                ]);
+
+                Mail::to($existingUser->email_user)->send(new SendOtpMail($otp));
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Un nouveau code OTP a été envoyé.'
+                ], 200);
+            }
         }
 
         // Génération du code OTP
-        $otp = rand(1000, 9999);
+        $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
         // Création du nouvel utilisateur
         $user = new User();
@@ -103,7 +118,7 @@ public function register_user(Request $request)
     {
         $request->validate([
             'email_user' => 'required|email',
-            'otp' => 'required|string|size:4'
+            'otp' => 'required|digits:4'
         ]);
 
         $user = User::where('email_user', $request->email_user)
@@ -902,16 +917,18 @@ public function change_password(Request $request)
 public function liste_user(Request $request)
 {
     try {
-        $users = User::where('type_account', 0)->get();
+       $users = User::where('type_account', 0)
+        ->whereNull('otp')
+        ->orderBy('created_at', 'desc')
+        ->get();
+
 
         $data = $users->map(function ($user) {
-            // 🔹 Transformer tel_user
             $user->tel_user = [
                 'value' => $user->tel_user,
                 'is_whatsapp' => (int) $user->is_whatsapp_un,
             ];
 
-            // 🔹 Transformer autre_tel
             $user->autre_tel = [
                 'value' => $user->autre_tel,
                 'is_whatsapp' => (int) $user->is_whatsapp_deux,

@@ -1002,13 +1002,56 @@ public function downloadZip($id, $generation = null)
             imagecopy($qrImage, $resizedLogo, $x, $y, 0, 0, $logoSize, $logoSize);
         }
 
+        // Ajouter le texte "Scannez pour rendre" en bas de l'image
+        $text = "Scannez pour rendre";
+        
+        // Calculer la nouvelle taille de l'image (ajouter de l'espace pour le texte)
+        $originalWidth = imagesx($qrImage);
+        $originalHeight = imagesy($qrImage);
+        
+        // Calculer la hauteur nécessaire pour le texte
+        $fontSize = 12; // Taille de police GD (1-5)
+        $textHeight = imagefontheight($fontSize) + 15; // Hauteur du texte + marge
+        
+        // Créer une nouvelle image avec l'espace pour le texte
+        $finalWidth = $originalWidth;
+        $finalHeight = $originalHeight + $textHeight;
+        
+        // S'assurer que l'image reste carrée en prenant la plus grande dimension
+        $squareSize = max($finalWidth, $finalHeight);
+        $finalWidth = $squareSize;
+        $finalHeight = $squareSize;
+        
+        $finalImage = imagecreatetruecolor($finalWidth, $finalHeight);
+        
+        // Fond blanc pour l'image finale
+        $white = imagecolorallocate($finalImage, 255, 255, 255);
+        imagefill($finalImage, 0, 0, $white);
+        
+        // Copier le QR code au centre de l'image carrée
+        $qrX = ($finalWidth - $originalWidth) / 2;
+        $qrY = ($finalHeight - $originalHeight - $textHeight) / 2;
+        imagecopy($finalImage, $qrImage, $qrX, $qrY, 0, 0, $originalWidth, $originalHeight);
+        
+        // Ajouter le texte
+        $textColor = imagecolorallocate($finalImage, 0, 0, 0); // Noir
+        
+        // Calculer la position du texte
+        $textWidth = imagefontwidth($fontSize) * strlen($text);
+        $textX = ($finalWidth - $textWidth) / 2;
+        $textY = $qrY + $originalHeight + 5; // Positionner juste en dessous du QR code
+        
+        // Ajouter le texte
+        imagestring($finalImage, $fontSize, $textX, $textY, $text, $textColor);
+
         // Sauvegarde avec compression maximale
-        imagepng($qrImage, $pngPath, 9);
+        imagepng($finalImage, $pngPath, 9);
 
         // Nettoyage
         imagedestroy($qrImage);
         imagedestroy($logoImage);
         imagedestroy($resizedLogo);
+        imagedestroy($finalImage);
         File::delete($tempQrPath);
     }
 
