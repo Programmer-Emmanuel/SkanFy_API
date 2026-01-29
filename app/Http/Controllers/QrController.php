@@ -1010,11 +1010,11 @@ public function downloadZip($id, $generation = null)
         $originalHeight = imagesy($qrImage);
         
         // Configuration de la police - CORRIGÉ ICI
-        $fontSize = 14; // Taille pour Montserrat (peut être 12, 14, 16, etc.)
-        $fontPath = public_path('fonts/Montserrat-Bold.ttf');
+        $fontSize = 22; // Taille pour Montserrat (peut être 12, 14, 16, etc.)
+        $fontPath = public_path('fonts/Roboto-Medium.ttf');
         
         // Hauteur estimée pour le texte (ajustez selon votre besoin)
-        $textHeight = 40;
+        $textHeight = 56;
         
         // Créer une nouvelle image avec l'espace pour le texte
         $finalWidth = $originalWidth;
@@ -1036,8 +1036,10 @@ public function downloadZip($id, $generation = null)
         $qrY = ($finalHeight - $originalHeight - $textHeight) / 2;
         imagecopy($finalImage, $qrImage, $qrX, $qrY, 0, 0, $originalWidth, $originalHeight);
         
-        // Ajouter le texte
-        $textColor = imagecolorallocate($finalImage, 0, 0, 0); // Noir
+        // Ajouter la coleur du texte
+        // $textColor = imagecolorallocate($finalImage, 0, 0, 0); // Noir
+        // $textColor = imagecolorallocate($finalImage, 0, 0, 128); // Bleu marrine
+        $textColor = imagecolorallocate($finalImage, 255, 80, 0); //orange vif
         
         // Vérifier si la police Montserrat existe
         if (file_exists($fontPath)) {
