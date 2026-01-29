@@ -1039,7 +1039,7 @@ public function downloadZip($id, $generation = null)
         // Ajouter la coleur du texte
         // $textColor = imagecolorallocate($finalImage, 0, 0, 0); // Noir
         // $textColor = imagecolorallocate($finalImage, 0, 0, 128); // Bleu marrine
-        $textColor = imagecolorallocate($finalImage, 255, 80, 0); //orange vif
+        $textColor = imagecolorallocate($finalImage, 255, 80, 0); //orange vif 
         
         // Vérifier si la police Montserrat existe
         if (file_exists($fontPath)) {
