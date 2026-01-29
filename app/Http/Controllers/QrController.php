@@ -991,7 +991,7 @@ public function downloadZip($id, $generation = null)
 
         // Position centrée
         $x = (imagesx($qrImage) - $logoSize) / 2;
-        $y = (imagesy($qrImage) - $logoSize) / 2;
+        $y = (imagesy($qrImage) - $logoSize) / 2; 
 
         // Méthode de fusion améliorée
         if ($logoType == IMAGETYPE_PNG) {
